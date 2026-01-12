@@ -1,0 +1,123 @@
+{
+  "api_data_aadhar_biometric": {
+    "sample_file": "api_data_aadhar_biometric_0_500000.csv",
+    "total_files": 4,
+    "columns": [
+      "date",
+      "state",
+      "district",
+      "pincode",
+      "bio_age_5_17",
+      "bio_age_17_"
+    ],
+    "column_count": 6,
+    "sample_rows": [
+      [
+        "01-03-2025",
+        "Haryana",
+        "Mahendragarh",
+        "123029",
+        "280",
+        "577"
+      ],
+      [
+        "01-03-2025",
+        "Bihar",
+        "Madhepura",
+        "852121",
+        "144",
+        "369"
+      ],
+      [
+        "01-03-2025",
+        "Jammu and Kashmir",
+        "Punch",
+        "185101",
+        "643",
+        "1091"
+      ]
+    ]
+  },
+  "api_data_aadhar_demographic": {
+    "sample_file": "api_data_aadhar_demographic_0_500000.csv",
+    "total_files": 5,
+    "columns": [
+      "date",
+      "state",
+      "district",
+      "pincode",
+      "demo_age_5_17",
+      "demo_age_17_"
+    ],
+    "column_count": 6,
+    "sample_rows": [
+      [
+        "01-03-2025",
+        "Uttar Pradesh",
+        "Gorakhpur",
+        "273213",
+        "49",
+        "529"
+      ],
+      [
+        "01-03-2025",
+        "Andhra Pradesh",
+        "Chittoor",
+        "517132",
+        "22",
+        "375"
+      ],
+      [
+        "01-03-2025",
+        "Gujarat",
+        "Rajkot",
+        "360006",
+        "65",
+        "765"
+      ]
+    ]
+  },
+  "api_data_aadhar_enrolment": {
+    "sample_file": "api_data_aadhar_enrolment_0_500000.csv",
+    "total_files": 3,
+    "columns": [
+      "date",
+      "state",
+      "district",
+      "pincode",
+      "age_0_5",
+      "age_5_17",
+      "age_18_greater"
+    ],
+    "column_count": 7,
+    "sample_rows": [
+      [
+        "02-03-2025",
+        "Meghalaya",
+        "East Khasi Hills",
+        "793121",
+        "11",
+        "61",
+        "37"
+      ],
+      [
+        "09-03-2025",
+        "Karnataka",
+        "Bengaluru Urban",
+        "560043",
+        "14",
+        "33",
+        "39"
+      ],
+      [
+        "09-03-2025",
+        "Uttar Pradesh",
+        "Kanpur Nagar",
+        "208001",
+        "29",
+        "82",
+        "12"
+      ]
+    ]
+  }
+}

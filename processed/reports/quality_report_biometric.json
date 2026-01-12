@@ -1,0 +1,83 @@
+{
+  "dataset_type": "biometric",
+  "timestamp": "2026-01-12T14:40:54.389272",
+  "total_rows": 1861108,
+  "total_columns": 8,
+  "overall_score": 66.7,
+  "checks": [
+    {
+      "rule_id": "Q1",
+      "rule_name": "Null Value Check (Critical Columns)",
+      "passed": false,
+      "message": "Found 1861108 null values (25.00%)",
+      "severity": "error",
+      "details": {
+        "null_counts": {
+          "date": 1861108
+        },
+        "threshold_percent": 5.0
+      }
+    },
+    {
+      "rule_id": "Q2",
+      "rule_name": "Count Column Validation",
+      "passed": true,
+      "message": "All count columns valid",
+      "severity": "info",
+      "details": {
+        "issues": {}
+      }
+    },
+    {
+      "rule_id": "Q3",
+      "rule_name": "Date Range Validation",
+      "passed": false,
+      "message": "Error parsing dates: '>=' not supported between instances of 'NoneType' and 'datetime.date'",
+      "severity": "error",
+      "details": null
+    },
+    {
+      "rule_id": "Q4",
+      "rule_name": "Geographic Hierarchy Validation",
+      "passed": true,
+      "message": "57 states, 0 invalid pincodes",
+      "severity": "info",
+      "details": {
+        "unique_states": 57,
+        "max_districts_per_state": 90,
+        "invalid_pincodes": 0
+      }
+    },
+    {
+      "rule_id": "Q5",
+      "rule_name": "Zero Value Analysis",
+      "passed": true,
+      "message": "Max zero percentage: 15.5% (threshold: 50.0%)",
+      "severity": "info",
+      "details": {
+        "age_5_17_count": {
+          "zero_count": 287670,
+          "zero_percent": 15.46
+        },
+        "age_17_plus_count": {
+          "zero_count": 196095,
+          "zero_percent": 10.54
+        }
+      }
+    },
+    {
+      "rule_id": "Q6",
+      "rule_name": "Temporal Continuity Check",
+      "passed": true,
+      "message": "Insufficient dates for continuity check",
+      "severity": "info",
+      "details": null
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 2,
+    "warnings": 0,
+    "errors": 2
+  }
+}

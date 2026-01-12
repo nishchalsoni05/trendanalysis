@@ -1,0 +1,87 @@
+{
+  "dataset_type": "enrolment",
+  "timestamp": "2026-01-12T14:40:54.670532",
+  "total_rows": 1006029,
+  "total_columns": 9,
+  "overall_score": 58.3,
+  "checks": [
+    {
+      "rule_id": "Q1",
+      "rule_name": "Null Value Check (Critical Columns)",
+      "passed": false,
+      "message": "Found 1006029 null values (25.00%)",
+      "severity": "error",
+      "details": {
+        "null_counts": {
+          "date": 1006029
+        },
+        "threshold_percent": 5.0
+      }
+    },
+    {
+      "rule_id": "Q2",
+      "rule_name": "Count Column Validation",
+      "passed": true,
+      "message": "All count columns valid",
+      "severity": "info",
+      "details": {
+        "issues": {}
+      }
+    },
+    {
+      "rule_id": "Q3",
+      "rule_name": "Date Range Validation",
+      "passed": false,
+      "message": "Error parsing dates: '>=' not supported between instances of 'NoneType' and 'datetime.date'",
+      "severity": "error",
+      "details": null
+    },
+    {
+      "rule_id": "Q4",
+      "rule_name": "Geographic Hierarchy Validation",
+      "passed": true,
+      "message": "55 states, 0 invalid pincodes",
+      "severity": "info",
+      "details": {
+        "unique_states": 55,
+        "max_districts_per_state": 89,
+        "invalid_pincodes": 0
+      }
+    },
+    {
+      "rule_id": "Q5",
+      "rule_name": "Zero Value Analysis",
+      "passed": false,
+      "message": "Max zero percentage: 96.0% (threshold: 50.0%)",
+      "severity": "warning",
+      "details": {
+        "age_0_5_count": {
+          "zero_count": 115243,
+          "zero_percent": 11.46
+        },
+        "age_5_17_count": {
+          "zero_count": 556737,
+          "zero_percent": 55.34
+        },
+        "age_18_plus_count": {
+          "zero_count": 965804,
+          "zero_percent": 96.0
+        }
+      }
+    },
+    {
+      "rule_id": "Q6",
+      "rule_name": "Temporal Continuity Check",
+      "passed": true,
+      "message": "Insufficient dates for continuity check",
+      "severity": "info",
+      "details": null
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 3,
+    "warnings": 1,
+    "errors": 2
+  }
+}

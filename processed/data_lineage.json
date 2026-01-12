@@ -1,0 +1,121 @@
+{
+  "created_at": "2026-01-12T14:40:50.260704",
+  "data_root": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data",
+  "datasets": {
+    "biometric": {
+      "file_count": 4,
+      "files": [
+        {
+          "file_name": "api_data_aadhar_biometric_0_500000.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_biometric\\api_data_aadhar_biometric_0_500000.csv",
+          "size_bytes": 22328580,
+          "modified_time": "2026-01-01T14:27:41",
+          "discovery_time": "2026-01-12T14:40:50.262528",
+          "file_hash_partial": "826dfb7f6681fde35df25abd8cc0dd7d"
+        },
+        {
+          "file_name": "api_data_aadhar_biometric_1000000_1500000.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_biometric\\api_data_aadhar_biometric_1000000_1500000.csv",
+          "size_bytes": 22091371,
+          "modified_time": "2026-01-01T14:51:27",
+          "discovery_time": "2026-01-12T14:40:50.264248",
+          "file_hash_partial": "1da50151daf4d0790e837ee1c1dafe3e"
+        },
+        {
+          "file_name": "api_data_aadhar_biometric_1500000_1861108.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_biometric\\api_data_aadhar_biometric_1500000_1861108.csv",
+          "size_bytes": 15925073,
+          "modified_time": "2026-01-01T14:56:10",
+          "discovery_time": "2026-01-12T14:40:50.266084",
+          "file_hash_partial": "4b4f88896eadfe4fe8569b4b42ee71ab"
+        },
+        {
+          "file_name": "api_data_aadhar_biometric_500000_1000000.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_biometric\\api_data_aadhar_biometric_500000_1000000.csv",
+          "size_bytes": 22094298,
+          "modified_time": "2026-01-01T14:33:54",
+          "discovery_time": "2026-01-12T14:40:50.267835",
+          "file_hash_partial": "2ee2b1bb335baab7103e1e9d9f566c6f"
+        }
+      ]
+    },
+    "demographic": {
+      "file_count": 5,
+      "files": [
+        {
+          "file_name": "api_data_aadhar_demographic_0_500000.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_demographic\\api_data_aadhar_demographic_0_500000.csv",
+          "size_bytes": 22131643,
+          "modified_time": "2026-01-01T11:20:51",
+          "discovery_time": "2026-01-12T14:40:50.269512",
+          "file_hash_partial": "c783349cac90a2b589eeab8a7cc41fe4"
+        },
+        {
+          "file_name": "api_data_aadhar_demographic_1000000_1500000.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_demographic\\api_data_aadhar_demographic_1000000_1500000.csv",
+          "size_bytes": 22120454,
+          "modified_time": "2026-01-01T11:40:50",
+          "discovery_time": "2026-01-12T14:40:50.271354",
+          "file_hash_partial": "72eb3e7f6bf8b1c4b5d025682994ba28"
+        },
+        {
+          "file_name": "api_data_aadhar_demographic_1500000_2000000.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_demographic\\api_data_aadhar_demographic_1500000_2000000.csv",
+          "size_bytes": 22100559,
+          "modified_time": "2026-01-01T11:51:19",
+          "discovery_time": "2026-01-12T14:40:50.273685",
+          "file_hash_partial": "2e9ca35a10e90384c5404c5507b7b449"
+        },
+        {
+          "file_name": "api_data_aadhar_demographic_2000000_2071700.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_demographic\\api_data_aadhar_demographic_2000000_2071700.csv",
+          "size_bytes": 3179152,
+          "modified_time": "2026-01-01T12:00:23",
+          "discovery_time": "2026-01-12T14:40:50.275475",
+          "file_hash_partial": "c7dd432ce83a0d71767f35ca0d15db42"
+        },
+        {
+          "file_name": "api_data_aadhar_demographic_500000_1000000.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_demographic\\api_data_aadhar_demographic_500000_1000000.csv",
+          "size_bytes": 22080001,
+          "modified_time": "2026-01-01T11:30:04",
+          "discovery_time": "2026-01-12T14:40:50.277158",
+          "file_hash_partial": "3e559bc2ca9d3611b7e5744ad080eb8b"
+        }
+      ]
+    },
+    "enrolment": {
+      "file_count": 3,
+      "files": [
+        {
+          "file_name": "api_data_aadhar_enrolment_0_500000.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_enrolment\\api_data_aadhar_enrolment_0_500000.csv",
+          "size_bytes": 22805098,
+          "modified_time": "2026-01-01T15:05:12",
+          "discovery_time": "2026-01-12T14:40:50.278987",
+          "file_hash_partial": "c5e1e4d2c3a9423de342f45302dda376"
+        },
+        {
+          "file_name": "api_data_aadhar_enrolment_1000000_1006029.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_enrolment\\api_data_aadhar_enrolment_1000000_1006029.csv",
+          "size_bytes": 276186,
+          "modified_time": "2026-01-01T15:12:22",
+          "discovery_time": "2026-01-12T14:40:50.279800",
+          "file_hash_partial": "d43d318f2f114933b550cf1a12a255d3"
+        },
+        {
+          "file_name": "api_data_aadhar_enrolment_500000_1000000.csv",
+          "file_path": "C:\\Users\\Manish Bisai\\Downloads\\code11\\data\\api_data_aadhar_enrolment\\api_data_aadhar_enrolment_500000_1000000.csv",
+          "size_bytes": 22802001,
+          "modified_time": "2026-01-01T15:11:28",
+          "discovery_time": "2026-01-12T14:40:50.281504",
+          "file_hash_partial": "c05584104eba56147a08aa9ef0206805"
+        }
+      ]
+    }
+  },
+  "summary": {
+    "total_files": 12,
+    "total_size_bytes": 219934416
+  }
+}

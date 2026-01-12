@@ -1,0 +1,57 @@
+{
+  "pipeline_start": "2026-01-12T14:40:50.258565",
+  "stages": {
+    "ingestion": {
+      "status": "SUCCESS",
+      "datasets": [
+        "biometric",
+        "demographic",
+        "enrolment"
+      ],
+      "total_rows": 4938837
+    },
+    "quality": {
+      "biometric": {
+        "status": "FAIL",
+        "score": 66.7
+      },
+      "demographic": {
+        "status": "FAIL",
+        "score": 66.7
+      },
+      "enrolment": {
+        "status": "FAIL",
+        "score": 58.3
+      }
+    },
+    "signal_separation": {
+      "status": "SUCCESS",
+      "demographic_noise_removed": 3.95,
+      "biometric_noise_removed": 79.81
+    },
+    "mvi": {
+      "status": "SUCCESS",
+      "total_units": 876,
+      "mean_mvi": 10394.29,
+      "high_pressure_count": 873
+    },
+    "spatial": {
+      "status": "SUCCESS",
+      "zone_distribution": {
+        "stable": 1,
+        "moderate_inflow": 2,
+        "high_inflow": 873
+      },
+      "states_covered": 39
+    },
+    "anomaly": {
+      "status": "SUCCESS",
+      "anomaly_count": 33,
+      "risk_level": "HIGH",
+      "alerts_generated": 3
+    }
+  },
+  "success": true,
+  "pipeline_end": "2026-01-12T14:40:54.995014",
+  "duration_seconds": 4.736449
+}
