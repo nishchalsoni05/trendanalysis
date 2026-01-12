@@ -1,0 +1,1 @@
+{'BIO': ['date', 'state', 'district', 'pincode', 'bio_age_5_17', 'bio_age_17_'], 'DEMO': ['date', 'state', 'district', 'pincode', 'demo_age_5_17', 'demo_age_17_'], 'ENROL': ['date', 'state', 'district', 'pincode', 'age_0_5', 'age_5_17', 'age_18_greater']}

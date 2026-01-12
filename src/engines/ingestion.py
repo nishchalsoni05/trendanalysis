@@ -70,6 +70,16 @@ def discover_datasets(data_path: Path = DATA_DIR) -> Dict[str, List[Path]]:
         "api_data_aadhar_enrolment": "enrolment",
     }
     
+    # Also check manual folders
+    manual_dir = data_path / "manual"
+    if manual_dir.exists():
+        for subdir in manual_dir.iterdir():
+            if subdir.is_dir() and subdir.name in ["biometric", "demographic", "enrolment"]:
+                # If we find files in manual/enrolment, map them to enrolment
+                current_files = datasets[subdir.name]
+                new_files = sorted(subdir.glob("*.csv"))
+                current_files.extend(new_files)
+
     for subdir in data_path.iterdir():
         if subdir.is_dir() and subdir.name in dir_to_type:
             dataset_type = dir_to_type[subdir.name]
@@ -176,6 +186,42 @@ def load_all_files_for_type(
 
 
 # =============================================================================
+# SCHEMA VALIDATION
+# =============================================================================
+
+def validate_required_columns(
+    df: pl.DataFrame,
+    dataset_type: str
+) -> Tuple[bool, List[str]]:
+    """
+    Validate that all required columns exist in the DataFrame.
+    
+    This is a critical validation gate that prevents silent failures
+    when CSV schemas don't match expected configuration.
+    
+    Args:
+        df: Input DataFrame to validate
+        dataset_type: One of 'biometric', 'demographic', 'enrolment'
+        
+    Returns:
+        Tuple of (is_valid, missing_columns)
+        
+    Example:
+        >>> is_valid, missing = validate_required_columns(df, "demographic")
+        >>> if not is_valid:
+        >>>     raise ValueError(f"Missing columns: {missing}")
+    """
+    if dataset_type not in NORMALIZED_COLUMNS:
+        raise ValueError(f"Unknown dataset type: {dataset_type}")
+    
+    required_columns = set(NORMALIZED_COLUMNS[dataset_type].keys())
+    actual_columns = set(df.columns)
+    missing_columns = required_columns - actual_columns
+    
+    return (len(missing_columns) == 0, sorted(list(missing_columns)))
+
+
+# =============================================================================
 # COLUMN NORMALIZATION
 # =============================================================================
 
@@ -220,38 +266,57 @@ def normalize_columns(
 
 def standardize_date_column(df: pl.DataFrame) -> pl.DataFrame:
     """
-    Convert date column to standard format (YYYY-MM-DD).
+    Convert date column to standard format (YYYY-MM-DD) with robust parsing.
     
-    Input format detected: DD-MM-YYYY
-    Output format: YYYY-MM-DD (ISO standard)
-    
-    If parsing fails, keeps the original date column as string.
+    Tries multiple date formats in order:
+    1. DD-MM-YYYY (UIDAI standard)
+    2. YYYY-MM-DD (ISO standard)
+    3. DD/MM/YYYY (alternate format)
     
     Args:
         df: DataFrame with 'date' column
         
     Returns:
         DataFrame with standardized date column
+        
+    Raises:
+        ValueError: If date column missing or all formats fail
     """
     if "date" not in df.columns:
-        return df
-    
-    try:
-        # First, ensure the date column is a string
-        df = df.with_columns(
-            pl.col("date").cast(pl.Utf8).alias("date")
+        raise ValueError(
+            "Required 'date' column missing from DataFrame. "
+            "Cannot proceed with temporal analysis."
         )
-        
-        # Try parsing DD-MM-YYYY format
-        df = df.with_columns(
-            pl.col("date").str.strptime(pl.Date, "%d-%m-%Y", strict=False).alias("date")
-        )
-    except Exception as e:
-        # If parsing fails, keep date as string for now
-        print(f"  Warning: Date parsing encountered issues: {e}")
-        print("  Keeping date as string column")
     
-    return df
+    # Ensure date column is string type
+    df = df.with_columns(
+        pl.col("date").cast(pl.Utf8).alias("date")
+    )
+    
+    # Try multiple date formats
+    formats_to_try = [
+        ("%d-%m-%Y", "DD-MM-YYYY (UIDAI standard)"),
+        ("%Y-%m-%d", "YYYY-MM-DD (ISO standard)"),
+        ("%d/%m/%Y", "DD/MM/YYYY (alternate)"),
+    ]
+    
+    for fmt, description in formats_to_try:
+        try:
+            parsed_df = df.with_columns(
+                pl.col("date").str.strptime(pl.Date, fmt, strict=True).alias("date")
+            )
+            print(f"  ✓ Date parsing successful using format: {description}")
+            return parsed_df
+        except Exception:
+            continue
+    
+    # If all formats fail, provide helpful error
+    sample_dates = df.select("date").head(5).to_series().to_list()
+    raise ValueError(
+        f"Date parsing failed for all supported formats.\n"
+        f"Sample date values: {sample_dates}\n"
+        f"Supported formats: DD-MM-YYYY, YYYY-MM-DD, DD/MM/YYYY"
+    )
 
 
 # =============================================================================
@@ -389,8 +454,27 @@ def run_ingestion_pipeline(
     print("\n[1/5] Discovering datasets...")
     datasets = discover_datasets(data_path)
     
-    for dtype, files in datasets.items():
-        print(f"  - {dtype}: {len(files)} files")
+    # Dataset coverage report
+    print("\n[DATASET COVERAGE REPORT]")
+    total_files = 0
+    for dtype in ["biometric", "demographic", "enrolment"]:
+        file_count = len(datasets.get(dtype, []))
+        total_files += file_count
+        if file_count == 0:
+            print(f"  ⚠️  {dtype}: NO FILES FOUND")
+        else:
+            print(f"  ✓  {dtype}: {file_count} files")
+    
+    # Fail if ALL datasets are empty
+    if total_files == 0:
+        raise FileNotFoundError(
+            "No CSV files found in any dataset directory.\\n"
+            f"Checked directories:\\n"
+            f"  - {BIOMETRIC_DIR}\\n"
+            f"  - {DEMOGRAPHIC_DIR}\\n"
+            f"  - {ENROLMENT_DIR}\\n"
+            "Please ensure CSV files are placed in the correct subdirectories."
+        )
     
     # Step 2: Create lineage manifest
     print("\n[2/5] Creating data lineage manifest...")
@@ -416,10 +500,24 @@ def run_ingestion_pipeline(
         df = load_all_files_for_type(file_paths, sample_size)
         print(f"  - Loaded {len(df):,} rows")
         
-        # Normalize columns
+        # VALIDATION GATE: Check required columns exist
+        print(f"  - Validating schema...")
+        is_valid, missing_columns = validate_required_columns(df, dataset_type)
+        if not is_valid:
+            raise ValueError(
+                f"Schema validation FAILED for {dataset_type}.\\n"
+                f"Missing required columns: {missing_columns}\\n"
+                f"Expected columns: {list(NORMALIZED_COLUMNS[dataset_type].keys())}\\n"
+                f"Actual columns: {df.columns}\\n"
+                f"\\nThis indicates a mismatch between CSV headers and config.py.\\n"
+                f"Please verify the CSV file structure matches NORMALIZED_COLUMNS."
+            )
+        print(f"  \u2713 Schema validation passed")
+        
+        # Normalize columns (only if validation passed)
         df = normalize_columns(df, dataset_type)
         
-        # Standardize dates
+        # Standardize dates (will raise error if parsing fails)
         df = standardize_date_column(df)
         
         # Export to Parquet

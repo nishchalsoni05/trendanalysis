@@ -18,20 +18,31 @@ India's population is dynamic, but tracking migration velocity and demographic s
 - **Frontend**: Streamlit
 - **Data Source**: Official UIDAI Open Data (Aggregated CSVs)
 
-## How to Run Locally
-1. **Create Environment**:
-   ```bash
-   python -m venv .venv
-   .\.venv\Scripts\activate
-   ```
-2. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. **Run Application**:
-   ```bash
-   streamlit run frontend/app.py
-   ```
+## Quick Start (One Command)
+
+### Windows - Just Double-Click
+```
+start.bat
+```
+The script automatically installs dependencies if needed and starts the dashboard.
+
+### Or Run Manually
+```bash
+# Install dependencies (first time only)
+pip install -r requirements.txt
+
+# Start dashboard
+streamlit run frontend/1_National_Overview.py
+```
+
+### Run Full Pipeline (Optional)
+```bash
+# Process raw CSV data first
+python run_pipeline.py
+
+# Then start dashboard
+streamlit run frontend/1_National_Overview.py
+```
 
 ## High-Level Workflow
 1. **Ingestion**: Load raw CSVs from `data/` directory.

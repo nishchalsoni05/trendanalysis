@@ -1,98 +1,690 @@
-# System Architecture: Aadhaar Sanket
-### Technical Design & Infrastructure Documentation
+# System Architecture: Aadhaar Sanket Backend
+### Complete Technical Flow Documentation
 
-## 1. System Overview
-**Aadhaar Sanket** is a deterministic, privacy-preserving demographic intelligence platform. It is designed to extract "truth" from high-volume, noisy administrative datasets (UIDAI).
+---
 
-The core design philosophy is **"Signal from Noise"**:
-- **Deterministic Processing**: The same input data will always produce the exact same Migration Velocity Index (MVI), guaranteeing auditability for government use.
-- **Explainable AI**: No "black box" neural networks are used for core metrics. Forecasting uses decomposable models (Prophet/LightGBM) where every decision boundary is transparent.
-- **Privacy First**: The system operates exclusively on **aggregated** counts (e.g., "Males age 20-30 in District X"). No PII ever enters the ingestion pipeline.
+## 1. SYSTEM FLOW OVERVIEW
 
-## 2. End-to-End Architecture Flow
+This section shows the complete end-to-end data flow from raw UIDAI CSV files to final policy insights.
 
-```mermaid
-graph TD
-    A[Raw UIDAI CSVs] -->|Ingestion Engine| B(DuckDB Staging)
-    B -->|Quality Engine| C{Data Validation}
-    C -->|Pass| D[Clean Polars DataFrames]
-    C -->|Fail| E[Rejection Logs]
-    
-    D -->|Signal Separation| F[Demographic Signal]
-    D -->|Signal Separation| G[Administrative Noise]
-    
-    F -->|Spatial Engine| H[H3/Geo Mappings]
-    F -->|MVI Engine| I[Migration Velocity Index]
-    I -->|Anomaly Engine| J[Forecasts & Outliers]
-    
-    H --> K[Processed Warehouse]
-    I --> K
-    J --> K
-    
-    K -->|Streamlit Interface| L[Interactive Dashboard]
-    L -->|User| M[Policy Maker]
+```
+RAW UIDAI CSV FILES (data/)
+    ↓
+[INGESTION LAYER] (src/engines/ingestion.py)
+    • Discover CSV files by dataset type
+    • Load with DuckDB (memory-efficient)
+    • Normalize column names
+    • Convert to Polars DataFrames
+    ↓
+[PARQUET EXPORT] (processed/parquet/)
+    • Export to columnar format
+    • Preserve schema
+    • Enable fast analytics
+    ↓
+[DATA QUALITY LAYER] (src/engines/quality.py)
+    • Validate null values
+    • Check geographic hierarchy
+    • Detect temporal gaps
+    • Generate quality scores
+    ↓
+[SIGNAL SEPARATION LAYER] (src/engines/signal_separation.py)
+    • Apply signal weights
+    • Separate migration signals from administrative noise
+    • Demographic updates → High signal (1.0)
+    • Biometric updates → Low signal (0.1-0.3)
+    ↓
+[POPULATION BASE CALCULATION] (src/engines/mvi.py)
+    • Aggregate enrolment data
+    • Calculate population per geography
+    • Establish MVI denominator
+    ↓
+[MVI COMPUTATION] (src/engines/mvi.py)
+    • Formula: (Signal-Adjusted Updates / Population) × 1000
+    • Classify into bands (Stable/Moderate/Elevated/High)
+    • Add confidence indicators
+    ↓
+[SPATIAL PROCESSING] (src/engines/spatial.py)
+    • Classify zones (inflow/stable/decline)
+    • Aggregate by state
+    • Detect hotspot clusters
+    ↓
+[ANOMALY DETECTION] (src/engines/anomaly.py)
+    • Calculate Z-scores
+    • Detect statistical outliers
+    • Classify severity (CRITICAL/HIGH/MEDIUM)
+    • Generate alerts
+    ↓
+[STREAMLIT PRESENTATION] (frontend/)
+    • Load cached processed data
+    • Render interactive visualizations
+    • Display policy insights
 ```
 
-## 3. Directory Structure & Component Logic
+---
 
-### `src/engines/` (Core Logic)
-The backend is modularized into isolated "engines". Each file is responsible for a single stage of the pipeline.
+## 2. DIRECTORY STRUCTURE & RESPONSIBILITIES
 
-- **`ingestion.py`**: Handles raw I/O. Uses **DuckDB** for lazy loading of massive CSVs. Enforces schema types at read time to prevent "object" dtype pollution.
-- **`quality.py`**: The integrity firewall. Contains **Great Expectations** suites and custom Pydantic validators. Rejects entire batches if statistical properties deviate from expected bounds (e.g., >5% nulls in district columns).
-- **`signal_separation.py`**: The critical business logic. Distinguishes between "Organic Migration" (e.g., Address Change) and "Administrative Noise" (e.g., Biometric Update, Mobile Number Linkage).
-- **`mvi.py`**: Computes the **Migration Velocity Index**. This engine aggregates normalized inflows/outflows over sliding time windows to produce a scalar velocity metric for every geographic unit.
-- **`spatial.py`**: Manages geospatial relationships. Maps administrative boundaries (State > District > Sub-District) to **H3 Hexagons** for uniform spatial analysis.
-- **`anomaly.py`**: Intelligence layer. Uses **Prophet** for time-series forecasting and statistical outlier detection (Z-scores) to flag sudden demographic spikes.
+### Root Level
 
-### `src/utils/` (Helpers)
-- **`config.py`**: Central configuration for paths, constants, and hyperparameters. **NO** hardcoded paths are allowed elsewhere.
+#### `data/`
+**Purpose**: Stores raw UIDAI CSV files organized by dataset type.
 
-### `frontend/` (Visualization)
-- **`app.py`**: Main entry point. Handles session state initialization and global sidebar navigation.
-- **`pages/1_migration_map.py`**: The "War Room" view. Renders PyDeck visualization of the MVI. heavily uses `st.cache_data` for performance.
-- **`pages/2_spatial_stress.py`**: Heatmap analysis showing infrastructure pressure points.
-- **`pages/3_forecasts.py`**: Predictive analytics view showing "What-If" scenarios.
-- **`pages/4_policy_insights.py`**: Text-heavy, actionable executive summary generation.
+**Why it exists**: Separation of raw source data from processed outputs ensures data lineage and reproducibility.
 
-### `data/` & `processed/`
-- **`data/`**: **READ-ONLY**. Raw UIDAI CSVs live here. GITIGNORED (mostly).
-- **`processed/`**: **CACHE/WRITE**. Intermediate Parquet files optimized for Streamlit read speeds.
+**Structure**:
+```
+data/
+├── api_data_aadhar_biometric/    # Biometric update CSVs
+├── api_data_aadhar_demographic/  # Demographic update CSVs
+└── api_data_aadhar_enrolment/    # Enrolment count CSVs
+```
 
-## 4. Backend Pipelines (Deep Dive)
+**Input**: Manual placement of UIDAI CSV files  
+**Output**: Read by ingestion engine  
+**Modification Policy**: **READ-ONLY**. Never modify raw data files.
 
-### Data Ingestion Pipeline
-The pipeline relies on **DuckDB** as a high-performance staging area. Instead of loading everything into RAM (Pandas), we use DuckDB to perform initial SQL-based filtering and casting on-disk, converting results to **Polars** DataFrames only when the working set is manageable.
+---
 
-### Signal vs. Noise Separation
-This is the most complex logic. Raw data contains "Updates". An update can be:
-1. **Migration Signal**: Address update (High value).
-2. **Growth Signal**: New Enrolment (Medium value).
-3. **Noise**: Mobile/Email update, Biometric refresh (Zero migration value).
+#### `processed/`
+**Purpose**: Stores all intermediate and final processed outputs.
 
-The `signal_separation` engine applies weighted filters to strip out Type 3, ensuring the MVI reflects *people moving*, not *people fixing typos*.
+**Why it exists**: Separates derived data from source data. Enables caching and incremental processing.
 
-### Migration Velocity Index (MVI) Computation
-$$MVI = \frac{(Inflow_{norm} - Outflow_{norm})}{\sigma_{historical}} \times \alpha_t$$
-The MVI is not a raw count. It is a **standardized velocity** representing deviation from the norm, weighted by recency ($\alpha_t$). This allows small towns with sudden influxes to flag correctly alongside large metros.
+**Structure**:
+```
+processed/
+├── parquet/          # Columnar format for analytics
+│   ├── biometric.parquet
+│   ├── demographic.parquet
+│   └── enrolment.parquet
+└── reports/          # Quality and lineage reports (JSON)
+```
 
-## 5. Frontend Architecture
-Streamlit is used in **Multi-Page App (MPA)** mode.
-- **State Management**: `st.session_state` is used to persist filtered datasets between page navigations.
-- **Caching**: Aggressive use of `st.cache_data` ensures that heavy tasks (MVI computation) happen only once per session or data update.
-- **Components**: We use `pydeck` for 3D geospatial rendering, which is significantly faster than Folium for large coordinate sets.
+**Input**: Generated by backend engines  
+**Output**: Read by frontend and subsequent pipeline stages  
+**Modification Policy**: Can be deleted and regenerated by running `run_pipeline.py`
 
-## 6. Data Flow & Contracts
-1. **Contract 1 (Ingestion)**: All input columns must match `data_schema.json`. Variance throws `SchemaError`.
-2. **Contract 2 (Processing)**: All output DataFrames must be **Polars**. Pandas is used ONLY for plotting compatibility at the very last mile.
-3. **Contract 3 (Types)**: Geocodes are always strings (to preserve leading zeros). Counts are always Integers (never floats).
+---
 
-## 7. Code Quality & Maintenance
-- **Pure Functions**: Backend processing functions are statistically "pure" — they do not modify global state.
-- **Type Hinting**: strict `mypy` compliance is encouraged.
-- **Modularity**: New analysis modules should be added as new files in `src/engines/` and imported into `run_pipeline.py`.
+#### `src/`
+**Purpose**: Contains all backend processing logic.
 
-## 8. Extension Guide
-- **Adding New Logic**: Create `src/engines/new_metric.py`. Register it in `run_pipeline.py`.
-- **Adding New Pages**: Create `frontend/pages/5_new_view.py`. It automatically appears in the sidebar.
-- **Updating Data**: Drop new CSVs into `data/`. The system detects timestamp changes and invalidates the `processed/` cache automatically.
+**Why it exists**: Centralized location for deterministic, testable analytics code.
+
+**Responsibilities**:
+- Data ingestion and normalization
+- Quality validation
+- Signal classification
+- MVI calculation
+- Spatial analysis
+- Anomaly detection
+
+**What is NOT allowed**:
+- Frontend code (belongs in `frontend/`)
+- Configuration values (belongs in `src/config.py`)
+- Raw data files (belongs in `data/`)
+
+---
+
+### `src/` Subdirectories
+
+#### `src/engines/`
+**Purpose**: Core analytics engines, each responsible for one stage of the pipeline.
+
+**Why "engines"**: Each file is a self-contained processing unit with clear inputs and outputs.
+
+**Files**:
+- `ingestion.py` - CSV → Parquet conversion
+- `quality.py` - Data validation and trust
+- `signal_separation.py` - Migration signal vs noise classification
+- `mvi.py` - Migration Velocity Index calculation
+- `spatial.py` - Geographic analysis and zone classification
+- `anomaly.py` - Statistical outlier detection
+
+**Input**: Polars DataFrames from previous stage  
+**Output**: Enriched Polars DataFrames for next stage  
+**Modification Policy**: Modify with caution. Changes affect downstream analytics.
+
+---
+
+#### `src/config.py`
+**Purpose**: Single source of truth for all configuration.
+
+**Why it exists**: Centralized configuration ensures deterministic behavior and easy parameter tuning.
+
+**Contains**:
+- File paths (DATA_DIR, PROCESSED_DIR)
+- Signal weights (demographic vs biometric)
+- MVI bands and thresholds
+- Anomaly detection parameters
+- Quality validation rules
+
+**Modification Policy**: Safe to modify for parameter tuning. Never hardcode paths elsewhere.
+
+---
+
+#### `frontend/`
+**Purpose**: Streamlit-based visualization layer.
+
+**Why it exists**: Separates presentation from analytics. Frontend reads precomputed results.
+
+**Structure**:
+```
+frontend/
+├── app.py                    # Main dashboard
+└── pages/
+    ├── 1_migration_map.py    # Geographic visualization
+    ├── 2_spatial_stress.py   # Zone analysis
+    ├── 3_forecasts.py        # Anomaly alerts
+    └── 4_policy_insights.py  # Executive summaries
+```
+
+**Input**: Reads from `processed/parquet/`  
+**Output**: Interactive web interface  
+**Modification Policy**: Safe to modify UI. Does NOT recompute analytics.
+
+---
+
+## 3. FILE-LEVEL BACKEND EXPLANATION
+
+### `run_pipeline.py`
+**Problem it solves**: Orchestrates the entire analytics pipeline in correct sequence.
+
+**Inputs**: None (reads from `data/` directory)
+
+**Outputs**: Populated `processed/` directory with Parquet files and reports
+
+**Execution flow**:
+1. Calls `run_ingestion_pipeline()` → produces Parquet files
+2. Calls `run_quality_checks()` → validates data quality
+3. Calls `apply_signal_weights()` → separates signal from noise
+4. Calls `calculate_mvi()` → computes migration velocity
+5. Calls `add_zone_classification()` → classifies geographic zones
+6. Calls `detect_mvi_anomalies()` → identifies outliers
+
+**Where it's called from**: Command line: `python run_pipeline.py`
+
+**Where outputs are used**: Frontend loads Parquet files for visualization
+
+---
+
+### `src/engines/ingestion.py`
+**Problem it solves**: Converts heterogeneous CSV files into standardized Polars DataFrames.
+
+**Inputs**:
+- Raw CSV files from `data/api_data_aadhar_*/`
+- Each CSV has inconsistent column names
+
+**Outputs**:
+- Standardized Parquet files in `processed/parquet/`
+- Columns normalized to schema defined in `config.NORMALIZED_COLUMNS`
+- Data lineage manifest (JSON)
+
+**Key functions**:
+- `discover_datasets()` - Scans `data/` for CSV files
+- `ingest_csv_with_duckdb()` - Loads CSV using DuckDB (memory-efficient)
+- `normalize_columns()` - Maps original columns to standard names
+- `export_to_parquet()` - Writes Polars DataFrame to Parquet
+
+**Where it's called from**: `run_pipeline.py` → `run_ingestion_pipeline()`
+
+**Where outputs are used**: All downstream engines read from Parquet files
+
+---
+
+### `src/engines/quality.py`
+**Problem it solves**: Ensures data trustworthiness before analytics.
+
+**Inputs**: Polars DataFrames from ingestion
+
+**Outputs**:
+- Quality score (0-100)
+- List of failed validation rules
+- Quality report (JSON)
+
+**Validation rules**:
+- **Q1**: Null values in critical columns (state, district, date)
+- **Q2**: Count columns are non-negative integers
+- **Q3**: Dates within expected range
+- **Q4**: Geographic hierarchy consistency
+- **Q5**: Excessive zero values (suppressed data)
+- **Q6**: Temporal continuity (missing dates)
+
+**Key functions**:
+- `run_quality_checks()` - Executes all validation rules
+- `validate_dataset()` - Returns pass/fail based on threshold
+- `clean_dataset()` - Removes invalid rows
+
+**Where it's called from**: `run_pipeline.py` after ingestion
+
+**Where outputs are used**: Pipeline halts if quality score < 70
+
+---
+
+### `src/engines/signal_separation.py`
+**Problem it solves**: Distinguishes genuine migration signals from administrative noise.
+
+**Inputs**: Demographic and biometric update DataFrames
+
+**Outputs**: DataFrames with signal-adjusted columns
+
+**Core logic**:
+- **Demographic updates** (address changes):
+  - Adults (age 17+): Weight = 1.0 (strong migration signal)
+  - Youth (age 5-17): Weight = 0.6 (family migration)
+- **Biometric updates** (mandatory re-enrollment):
+  - Youth (age 5-17): Weight = 0.1 (mandatory at ages 5, 15 - noise)
+  - Adults (age 17+): Weight = 0.3 (weak signal)
+
+**Key functions**:
+- `apply_signal_weights()` - Multiplies counts by signal weights
+- `calculate_combined_migration_signal()` - Merges demographic + biometric signals
+
+**Where it's called from**: `run_pipeline.py` after quality validation
+
+**Where outputs are used**: MVI engine uses signal-adjusted counts
+
+---
+
+### `src/engines/mvi.py`
+**Problem it solves**: Quantifies migration velocity relative to population base.
+
+**Inputs**:
+- Signal-adjusted update counts
+- Population base from enrolment data
+
+**Outputs**: DataFrame with MVI values, bands, and confidence scores
+
+**Formula**:
+```
+MVI = (Signal-Adjusted Updates / Population Base) × 1000
+```
+
+**Classification bands**:
+- **Stable**: MVI < 5
+- **Moderate**: 5 ≤ MVI < 15
+- **Elevated**: 15 ≤ MVI < 30
+- **High Pressure**: MVI ≥ 30
+
+**Key functions**:
+- `calculate_population_base()` - Aggregates enrolment counts by geography
+- `calculate_mvi()` - Computes MVI per district
+- `classify_mvi_bands()` - Assigns interpretation bands
+- `add_confidence_indicator()` - Flags low-population areas (unreliable MVI)
+
+**Where it's called from**: `run_pipeline.py` after signal separation
+
+**Where outputs are used**: Spatial engine and frontend visualizations
+
+---
+
+### `src/engines/spatial.py`
+**Problem it solves**: Adds geographic context and detects spatial patterns.
+
+**Inputs**: DataFrame with MVI values
+
+**Outputs**: DataFrame with zone classifications and cluster flags
+
+**Zone classification logic**:
+- **High Inflow**: MVI ≥ 30
+- **Moderate Inflow**: 15 ≤ MVI < 30
+- **Stable**: 5 ≤ MVI < 15
+- **Decline**: MVI < 5 with negative trend
+
+**Key functions**:
+- `add_zone_classification()` - Classifies each district
+- `aggregate_by_state()` - Rolls up metrics to state level
+- `detect_hotspot_clusters()` - Identifies adjacent high-MVI districts
+
+**Where it's called from**: `run_pipeline.py` after MVI calculation
+
+**Where outputs are used**: Frontend maps and policy insights
+
+---
+
+### `src/engines/anomaly.py`
+**Problem it solves**: Detects statistical outliers requiring attention.
+
+**Inputs**: DataFrame with MVI time series
+
+**Outputs**:
+- DataFrame with anomaly flags and Z-scores
+- List of Alert objects
+- Anomaly report (JSON)
+
+**Detection method**:
+```
+Z-score = (Observed MVI - Historical Mean) / Historical Std Dev
+Anomaly if |Z-score| > 2.0
+```
+
+**Severity classification**:
+- **CRITICAL**: Z-score > 3.0
+- **HIGH**: Z-score > 2.5
+- **MEDIUM**: Z-score > 2.0
+
+**Key functions**:
+- `detect_mvi_anomalies()` - Calculates Z-scores
+- `generate_alerts()` - Creates actionable alerts
+- `classify_anomaly_pattern()` - Distinguishes structural vs transient anomalies
+
+**Where it's called from**: `run_pipeline.py` after spatial processing
+
+**Where outputs are used**: Frontend alerts page
+
+---
+
+## 4. BACKEND PIPELINE LOGIC (SEQUENTIAL FLOW)
+
+### Pipeline 1: Ingestion
+**Trigger**: User runs `python run_pipeline.py`
+
+**Transformations**:
+1. Scan `data/` for CSV files
+2. Load each CSV with DuckDB (lazy evaluation)
+3. Normalize column names using `config.NORMALIZED_COLUMNS`
+4. Standardize date format (DD-MM-YYYY → YYYY-MM-DD)
+5. Convert to Polars DataFrame
+6. Export to Parquet with Snappy compression
+
+**Assumptions**:
+- CSV files follow UIDAI schema
+- Date column exists and is parseable
+- Geographic columns (state, district, pincode) are present
+
+**Guarantees**:
+- Output Parquet files have consistent schema
+- All dates are ISO format
+- Column names match `NORMALIZED_COLUMNS`
+
+---
+
+### Pipeline 2: Quality Validation
+**Trigger**: Automatically after ingestion
+
+**Transformations**:
+1. Check null values in critical columns
+2. Validate count columns are non-negative
+3. Verify dates within expected range
+4. Check geographic hierarchy consistency
+5. Detect excessive zero values
+6. Identify temporal gaps
+
+**Assumptions**:
+- Input DataFrames have normalized columns
+- Quality thresholds defined in `config.QUALITY_THRESHOLDS`
+
+**Guarantees**:
+- Quality score (0-100) is deterministic
+- Pipeline halts if score < 70
+- Failed rows are logged for inspection
+
+---
+
+### Pipeline 3: Signal Separation
+**Trigger**: After quality validation passes
+
+**Transformations**:
+1. Apply signal weights from `config.SIGNAL_WEIGHTS`
+2. Create new columns: `signal_adjusted_age_5_17`, `signal_adjusted_age_17_plus`
+3. Combine demographic and biometric signals
+4. Apply temporal dampening for known policy periods
+
+**Assumptions**:
+- Signal weights are calibrated (demographic > biometric)
+- Age groups are mutually exclusive
+
+**Guarantees**:
+- Signal-adjusted counts ≤ original counts
+- Weights are auditable and explainable
+- No black-box transformations
+
+---
+
+### Pipeline 4: MVI Calculation
+**Trigger**: After signal separation
+
+**Transformations**:
+1. Calculate population base from enrolment data
+2. Aggregate signal-adjusted updates by geography
+3. Compute MVI = (Updates / Population) × 1000
+4. Classify into bands (Stable/Moderate/Elevated/High)
+5. Add confidence indicator based on population size
+
+**Assumptions**:
+- Population base is stable over analysis period
+- Enrolment data represents true population
+
+**Guarantees**:
+- MVI is normalized (comparable across geographies)
+- Same input → same MVI (deterministic)
+- Low-population areas flagged as "Low Confidence"
+
+---
+
+### Pipeline 5: Spatial Aggregation
+**Trigger**: After MVI calculation
+
+**Transformations**:
+1. Classify zones based on MVI thresholds
+2. Aggregate district-level MVI to state level
+3. Detect hotspot clusters (adjacent high-MVI districts)
+4. Calculate state rankings
+
+**Assumptions**:
+- District boundaries are consistent
+- Adjacent districts can be identified by state grouping
+
+**Guarantees**:
+- Zone classifications are mutually exclusive
+- State-level MVI is population-weighted average
+
+---
+
+### Pipeline 6: Anomaly Detection
+**Trigger**: After spatial aggregation
+
+**Transformations**:
+1. Calculate historical baseline (mean, std dev)
+2. Compute Z-scores for each district
+3. Flag anomalies where |Z-score| > 2.0
+4. Classify severity (CRITICAL/HIGH/MEDIUM)
+5. Generate actionable alerts
+
+**Assumptions**:
+- Minimum 7 data points for baseline
+- Z-score distribution is approximately normal
+
+**Guarantees**:
+- Anomalies are statistically significant
+- Alerts include affected regions and recommended actions
+
+---
+
+## 5. DATA CONTRACTS & FLOW GUARANTEES
+
+### Schema Enforcement
+
+**At Ingestion**:
+- Column names must match `NORMALIZED_COLUMNS` after normalization
+- Missing columns → Error (pipeline halts)
+- Extra columns → Ignored
+
+**At Quality Validation**:
+- Critical columns (state, district, date) must have 0% nulls
+- Count columns must be non-negative integers
+- Dates must parse to YYYY-MM-DD format
+
+**At MVI Calculation**:
+- Population base must be > 0
+- Signal-adjusted counts must be numeric
+- Geographic keys must match between signal and population DataFrames
+
+---
+
+### Invalid Data Handling
+
+**Null values**:
+- Critical columns: Row rejected
+- Non-critical columns: Replaced with 0 (for counts) or "UNKNOWN" (for text)
+
+**Out-of-range dates**:
+- Row rejected if outside `config.QUALITY_THRESHOLDS` date range
+
+**Negative counts**:
+- Row rejected (data corruption)
+
+**Zero population**:
+- MVI set to 0, confidence = "Low"
+
+---
+
+### Deterministic Behavior
+
+**Guaranteed**:
+- Same CSV files → Same MVI values
+- No randomness in any pipeline stage
+- Timestamps in outputs are for metadata only (not used in calculations)
+
+**How it's ensured**:
+- No random sampling
+- No LLMs or neural networks in core logic
+- All transformations are pure functions
+- Configuration is explicit (no hidden defaults)
+
+---
+
+### Reproducibility
+
+**To reproduce results**:
+1. Use same CSV files in `data/`
+2. Use same `config.py` parameters
+3. Run `python run_pipeline.py`
+
+**Output will be identical**:
+- Same Parquet files (byte-for-byte)
+- Same quality scores
+- Same MVI values
+- Same anomaly flags
+
+---
+
+## 6. FRONTEND CONNECTION
+
+### How Frontend Reads Backend Outputs
+
+**Data Loading**:
+- Frontend uses `load_processed_dataset()` from `src/engines/ingestion.py`
+- Reads Parquet files from `processed/parquet/`
+- Caches DataFrames using `@st.cache_data` decorator
+
+**No Recomputation**:
+- Frontend NEVER recalculates MVI
+- Frontend NEVER re-runs signal separation
+- All analytics are precomputed by backend
+
+---
+
+### Precomputed vs On-Demand
+
+**Precomputed (by backend)**:
+- Signal-adjusted counts
+- MVI values
+- Zone classifications
+- Anomaly flags
+- Quality scores
+
+**Computed on-demand (by frontend)**:
+- Filtering by state/district
+- Sorting tables
+- Aggregating for charts
+- Formatting for display
+
+---
+
+### Why Frontend Doesn't Recompute
+
+**Performance**: MVI calculation on 640+ districts is expensive
+
+**Consistency**: Ensures all users see same results
+
+**Auditability**: Backend outputs are versioned and traceable
+
+**Separation of Concerns**: Frontend is presentation layer only
+
+---
+
+## 7. EXTENSION & MAINTENANCE GUIDE
+
+### Adding New Datasets
+
+**Where**: Place CSV files in `data/api_data_aadhar_<type>/`
+
+**Required changes**:
+1. Add column mapping to `config.NORMALIZED_COLUMNS`
+2. Update `ingestion.py` to recognize new dataset type
+3. Define signal weights in `config.SIGNAL_WEIGHTS` (if applicable)
+
+**Testing**: Run `python run_pipeline.py --sample 1000` to test with subset
+
+---
+
+### Modifying Signal Weights
+
+**Where**: `src/config.py` → `SIGNAL_WEIGHTS`
+
+**Impact**: Changes MVI values for all geographies
+
+**Recommendation**: Document reasoning for weight changes
+
+**Testing**: Compare MVI distributions before/after weight change
+
+---
+
+### Adding New Analytics
+
+**Where**: Create new file in `src/engines/`
+
+**Pattern to follow**:
+```python
+def new_analysis(input_df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Clear docstring explaining:
+    - What problem this solves
+    - What inputs are expected
+    - What outputs are produced
+    """
+    # Pure function logic
+    return output_df
+```
+
+**Integration**: Add function call to `run_pipeline.py`
+
+---
+
+### What NOT to Touch Casually
+
+**Critical files** (changes affect all downstream analytics):
+- `src/engines/signal_separation.py` - Core intellectual property
+- `src/engines/mvi.py` - MVI formula
+- `src/config.py` - Signal weights and thresholds
+
+**Safe to modify**:
+- `frontend/` - UI changes only
+- `src/engines/spatial.py` - Zone classification logic
+- `src/engines/anomaly.py` - Alert thresholds
+
+---
+
+## 8. SUMMARY
+
+This architecture document provides a complete technical explanation of how Aadhaar Sanket processes raw UIDAI data into actionable demographic intelligence.
+
+**Key takeaways**:
+1. **Flow**: CSV → Ingestion → Quality → Signal Separation → MVI → Spatial → Anomaly → Frontend
+2. **Determinism**: Same inputs always produce same outputs
+3. **Separation**: Backend computes, frontend presents
+4. **Auditability**: All transformations are explainable
+5. **Extensibility**: Modular engine design allows safe additions
+
+For questions about specific functions, refer to inline docstrings in each engine file.

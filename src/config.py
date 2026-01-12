@@ -39,7 +39,7 @@ NORMALIZED_COLUMNS: Dict[str, Dict[str, str]] = {
         "district": "district",
         "pincode": "pincode",
         "bio_age_5_17": "age_5_17_count",
-        "bio_age_17_": "age_17_plus_count",
+        "bio_age_17_": "age_17_plus_count",  # Note: trailing underscore in CSV
     },
     "demographic": {
         "date": "date",
@@ -47,7 +47,7 @@ NORMALIZED_COLUMNS: Dict[str, Dict[str, str]] = {
         "district": "district",
         "pincode": "pincode",
         "demo_age_5_17": "age_5_17_count",
-        "demo_age_17_": "age_17_plus_count",
+        "demo_age_17_": "age_17_plus_count",  # Note: trailing underscore in CSV
     },
     "enrolment": {
         "date": "date",

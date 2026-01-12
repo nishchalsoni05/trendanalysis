@@ -35,3 +35,6 @@ tqdm>=4.66.0
 
 # Testing
 pytest>=8.0.0
+
+# Archives
+patool>=1.12
