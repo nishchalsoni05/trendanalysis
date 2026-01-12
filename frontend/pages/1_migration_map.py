@@ -6,6 +6,7 @@ Interactive geographic visualization of migration patterns.
 import streamlit as st
 from pathlib import Path
 import sys
+import polars as pl
 
 st.set_page_config(
     page_title="Migration Map | Aadhaar Sanket",
@@ -72,7 +73,6 @@ try:
         )
         
         if zone_filter:
-            import polars as pl
             filtered_df = filtered_df.filter(pl.col("zone_type").is_in(zone_filter))
         
         st.markdown(f"**Showing {len(filtered_df)} districts**")
