@@ -109,45 +109,37 @@ def main():
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.markdown(
-            styles.render_kpi_card(
-                value=f"{mvi_summary['total_units']:,}",
-                label="Districts Analyzed"
-            ),
-            unsafe_allow_html=True
+        drill_down.render_metric_button(
+            value=f"{mvi_summary['total_units']:,}",
+            label="Districts Analyzed",
+            metric_id="total_districts"
         )
     
     with col2:
-        st.markdown(
-            styles.render_kpi_card(
-                value=f"{mvi_summary['mvi_statistics']['mean']:.1f}",
-                label="Average MVI"
-            ),
-            unsafe_allow_html=True
+        drill_down.render_metric_button(
+            value=f"{mvi_summary['mvi_statistics']['mean']:.1f}",
+            label="Average MVI",
+            metric_id="average_mvi"
         )
     
     with col3:
         high_pressure = mvi_summary['interpretation']['high_pressure_count']
-        st.markdown(
-            styles.render_kpi_card(
-                value=f"{high_pressure}",
-                label="High-Pressure Zones",
-                trend="⚠️ Critical" if high_pressure > 0 else "✓ Clear",
-                trend_direction="up" if high_pressure > 0 else "down"
-            ),
-            unsafe_allow_html=True
+        drill_down.render_metric_button(
+            value=f"{high_pressure}",
+            label="High-Pressure Zones",
+            metric_id="high_mvi",
+            trend="⚠️ Critical" if high_pressure > 0 else "✓ Clear",
+            trend_direction="up" if high_pressure > 0 else "down"
         )
     
     with col4:
         attention = mvi_summary['interpretation']['attention_needed']
-        st.markdown(
-            styles.render_kpi_card(
-                value=f"{attention}",
-                label="Zones Needing Attention",
-                trend="Monitor" if attention > 0 else "Stable",
-                trend_direction="neutral"
-            ),
-            unsafe_allow_html=True
+        drill_down.render_metric_button(
+            value=f"{attention}",
+            label="Zones Needing Attention",
+            metric_id="elevated_mvi",
+            trend="Monitor" if attention > 0 else "Stable",
+            trend_direction="neutral"
         )
     
     st.markdown("<br>", unsafe_allow_html=True)
