@@ -25,6 +25,15 @@ import frontend.drill_down as drill_down
 # Apply global CSS
 st.markdown(styles.get_global_css(), unsafe_allow_html=True)
 
+if "loader_shown_P3" not in st.session_state:
+    from frontend.components.loader import render_loader
+    render_loader([
+        ("LOADING MAP TILES", "Vectorizing district boundaries..."),
+        ("CALCULATING FLOW VECTORS", "Analyzing migration paths..."),
+        ("READY", "Rendering geospatial layers...")
+    ])
+    st.session_state["loader_shown_P3"] = True
+
 # Enforce Data Availability
 from frontend.guardrails import require_data
 require_data()
@@ -113,14 +122,57 @@ col1, col2 = st.columns([1, 3])
 with col1:
     st.markdown("### 🔍 Filters")
     
+    # Custom CSS to fix dropdown visibility
+    st.markdown("""
+    <style>
+    /* Fix selectbox and multiselect styling */
+    .stSelectbox > div > div,
+    .stMultiSelect > div > div {
+        background-color: #1e293b !important;
+        color: white !important;
+    }
+    /* Make labels dark/black for visibility on light sidebar */
+    .stSelectbox label, .stMultiSelect label, .stSlider label {
+        color: #1e293b !important;
+        font-weight: 600 !important;
+    }
+    div[data-baseweb="select"] > div {
+        background-color: #1e293b !important;
+        border-color: #475569 !important;
+    }
+    div[data-baseweb="select"] span {
+        color: white !important;
+    }
+    /* Dropdown menu items */
+    ul[role="listbox"] {
+        background-color: #1e293b !important;
+    }
+    ul[role="listbox"] li {
+        color: white !important;
+    }
+    ul[role="listbox"] li:hover {
+        background-color: #334155 !important;
+    }
+    /* Section headers in sidebar */
+    .stMarkdown h4 {
+        color: #1e293b !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     state_list = states if states else ["All"]
-    selected_state = st.selectbox("Select State", ["All States"] + (state_list if "All" not in state_list else []))
+    selected_state = st.selectbox(
+        "🗺️ Select State", 
+        ["All States"] + (state_list if "All" not in state_list else []),
+        help="Filter districts by state"
+    )
     
     mvi_range = st.slider(
-        "MVI Range",
+        "📊 MVI Range",
         min_value=0.0,
         max_value=float(mvi_df.select("mvi").max().item()),
-        value=(0.0, float(mvi_df.select("mvi").max().item()))
+        value=(0.0, float(mvi_df.select("mvi").max().item())),
+        help="Migration Velocity Index filter"
     )
     
     # Get actual trend types from data
@@ -129,11 +181,39 @@ with col1:
     else:
         available_trend_types = []
     
+    # Enhanced trend type filter
     zone_filter = st.multiselect(
-        "Trend Type",
-        available_trend_types if available_trend_types else ["structural", "seasonal", "cyclical", "volatile"],
-        default=available_trend_types[:2] if len(available_trend_types) >= 2 else available_trend_types
+        "📈 Trend Classification",
+        available_trend_types if available_trend_types else ["structural", "seasonal", "cyclical", "volatile", "stable"],
+        default=available_trend_types if available_trend_types else [],
+        help="Filter by migration trend type"
     )
+    
+    # Additional MVI Band filter
+    st.markdown("#### 🎯 MVI Classification")
+    band_options = {
+        "🟢 Stable (< 5)": (0, 5),
+        "🟡 Moderate (5-15)": (5, 15),
+        "🟠 Elevated (15-30)": (15, 30),
+        "🔴 High Pressure (30+)": (30, 9999)
+    }
+    
+    selected_bands = st.multiselect(
+        "Quick Filter by MVI Band",
+        list(band_options.keys()),
+        default=[],
+        help="Select predefined MVI ranges"
+    )
+    
+    # Confidence filter if available
+    if "confidence" in mvi_df.columns:
+        available_confidence = sorted(mvi_df.select("confidence").unique().to_series().to_list())
+        confidence_filter = st.multiselect(
+            "🎖️ Data Confidence",
+            available_confidence,
+            default=[],
+            help="Filter by statistical confidence level"
+        )
 
 with col2:
     # Apply filters
@@ -151,17 +231,37 @@ with col2:
         if selected_state != "All States":
             filtered_df = filtered_df.filter(pl.col("state") == selected_state)
     
+    # Apply MVI range filter from slider
     if "mvi" in filtered_df.columns:
         filtered_df = filtered_df.filter(
             (pl.col("mvi") >= mvi_range[0]) & 
             (pl.col("mvi") <= mvi_range[1])
         )
     
+    # Apply MVI band quick filter (overrides slider if selected)
+    if selected_bands and "mvi" in filtered_df.columns:
+        band_conditions = []
+        for band_name in selected_bands:
+            min_val, max_val = band_options[band_name]
+            band_conditions.append(
+                (pl.col("mvi") >= min_val) & (pl.col("mvi") < max_val)
+            )
+        # Combine with OR (any selected band matches)
+        if band_conditions:
+            combined_filter = band_conditions[0]
+            for cond in band_conditions[1:]:
+                combined_filter = combined_filter | cond
+            filtered_df = filtered_df.filter(combined_filter)
+    
     # Map 'trend_type' to zone filter if 'zone_type' is missing
     type_col = "zone_type" if "zone_type" in filtered_df.columns else "trend_type"
     
     if zone_filter and type_col in filtered_df.columns:
         filtered_df = filtered_df.filter(pl.col(type_col).is_in(zone_filter))
+    
+    # Apply confidence filter if selected
+    if "confidence" in mvi_df.columns and "confidence_filter" in dir() and confidence_filter:
+        filtered_df = filtered_df.filter(pl.col("confidence").is_in(confidence_filter))
     
     st.markdown(f"**Showing {len(filtered_df)} districts**")
     

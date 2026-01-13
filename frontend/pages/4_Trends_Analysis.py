@@ -39,6 +39,15 @@ import frontend.chart_config as chart_config
 # Apply global CSS
 st.markdown(styles.get_global_css(), unsafe_allow_html=True)
 
+if "loader_shown_P4_Trends" not in st.session_state:
+    from frontend.components.loader import render_loader
+    render_loader([
+        ("ANALYZING TIME SERIES", "Decomposing seasonal trends..."),
+        ("DETECTING SHOCKS", "Isolating anomalous spikes..."),
+        ("READY", "Displaying longitudinal analysis...")
+    ])
+    st.session_state["loader_shown_P4_Trends"] = True
+
 # Enforce Data Availability
 from frontend.guardrails import require_data
 require_data()

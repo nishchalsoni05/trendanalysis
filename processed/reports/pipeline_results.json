@@ -1,5 +1,5 @@
 {
-  "pipeline_start": "2026-01-13T20:18:43.194023",
+  "pipeline_start": "2026-01-13T21:52:32.400285",
   "stages": {
     "ingestion": {
       "status": "SUCCESS",
@@ -38,9 +38,9 @@
     "spatial": {
       "status": "SUCCESS",
       "zone_distribution": {
+        "stable": 1,
         "moderate_inflow": 2,
-        "high_inflow": 902,
-        "stable": 1
+        "high_inflow": 902
       },
       "states_covered": 43
     },
@@ -59,6 +59,6 @@
     }
   },
   "success": true,
-  "pipeline_end": "2026-01-13T20:19:02.249012",
-  "duration_seconds": 19.054989
+  "pipeline_end": "2026-01-13T21:52:47.746541",
+  "duration_seconds": 15.346256
 }

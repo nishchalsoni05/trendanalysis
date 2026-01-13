@@ -10,10 +10,27 @@ This engine handles:
 
 Design Principles:
 - Pure functions with no hidden state
-- Explicit error handling
+- Explicit error handling with custom exceptions
 - Deterministic outputs
 - All transformations are documented
+- Structured logging throughout
+
+Version: 1.0.0
 """
+
+__all__ = [
+    "discover_datasets",
+    "ingest_csv_with_duckdb",
+    "load_all_files_for_type",
+    "validate_required_columns",
+    "normalize_columns",
+    "standardize_date_column",
+    "deduplicate_dataframe",
+    "run_ingestion_pipeline",
+    "load_processed_dataset",
+    "save_dataset",
+]
+
 import os
 import hashlib
 from datetime import datetime
@@ -36,6 +53,18 @@ from src.config import (
     NORMALIZED_COLUMNS,
 )
 
+# Import custom exceptions and logging
+from src.exceptions import (
+    DataIngestionError,
+    SchemaValidationError,
+    DateParsingError,
+    FileDiscoveryError,
+)
+from src.logging_config import get_logger, log_dataframe_info
+
+# Module logger
+logger = get_logger(__name__)
+
 
 # =============================================================================
 # DATASET DISCOVERY
@@ -52,10 +81,15 @@ def discover_datasets(data_path: Path = DATA_DIR) -> Dict[str, List[Path]]:
         Dictionary mapping dataset type to list of CSV file paths
         
     Raises:
-        FileNotFoundError: If data directory does not exist
+        FileDiscoveryError: If data directory does not exist
     """
+    logger.info(f"Discovering datasets in: {data_path}")
+    
     if not data_path.exists():
-        raise FileNotFoundError(f"Data directory not found: {data_path}")
+        raise FileDiscoveryError(
+            f"Data directory not found: {data_path}",
+            details={"path": str(data_path)}
+        )
     
     datasets: Dict[str, List[Path]] = {
         "biometric": [],
@@ -75,16 +109,23 @@ def discover_datasets(data_path: Path = DATA_DIR) -> Dict[str, List[Path]]:
     if manual_dir.exists():
         for subdir in manual_dir.iterdir():
             if subdir.is_dir() and subdir.name in ["biometric", "demographic", "enrolment"]:
-                # If we find files in manual/enrolment, map them to enrolment
                 current_files = datasets[subdir.name]
                 new_files = sorted(subdir.glob("*.csv"))
                 current_files.extend(new_files)
+                if new_files:
+                    logger.debug(f"Found {len(new_files)} files in manual/{subdir.name}")
 
     for subdir in data_path.iterdir():
         if subdir.is_dir() and subdir.name in dir_to_type:
             dataset_type = dir_to_type[subdir.name]
             csv_files = sorted(subdir.glob("*.csv"))
             datasets[dataset_type].extend(csv_files)
+            if csv_files:
+                logger.debug(f"Found {len(csv_files)} files in {subdir.name}")
+    
+    # Log summary
+    for dtype, files in datasets.items():
+        logger.info(f"  {dtype}: {len(files)} files")
     
     return datasets
 
@@ -185,6 +226,40 @@ def load_all_files_for_type(
     return pl.concat(dataframes, how="vertical_relaxed")
 
 
+def deduplicate_dataframe(
+    df: pl.DataFrame,
+    exclude_columns: List[str] = None
+) -> Tuple[pl.DataFrame, int]:
+    """
+    Remove duplicate rows from DataFrame based on data columns.
+    
+    Excludes metadata columns (_source_file, dataset_type) from comparison
+    to ensure rows with identical data are deduplicated even if they 
+    came from different files.
+    
+    Args:
+        df: Input DataFrame potentially containing duplicates
+        exclude_columns: Columns to ignore when comparing (default: _source_file)
+        
+    Returns:
+        Tuple of (deduplicated DataFrame, number of duplicates removed)
+    """
+    if exclude_columns is None:
+        exclude_columns = ["_source_file"]
+    
+    # Get columns to use for deduplication (exclude metadata)
+    comparison_columns = [c for c in df.columns if c not in exclude_columns]
+    
+    original_count = len(df)
+    df_deduped = df.unique(subset=comparison_columns, keep="first")
+    duplicates_removed = original_count - len(df_deduped)
+    
+    if duplicates_removed > 0:
+        logger.info(f"Removed {duplicates_removed:,} duplicate rows")
+    
+    return df_deduped, duplicates_removed
+
+
 # =============================================================================
 # SCHEMA VALIDATION
 # =============================================================================
@@ -280,12 +355,13 @@ def standardize_date_column(df: pl.DataFrame) -> pl.DataFrame:
         DataFrame with standardized date column
         
     Raises:
-        ValueError: If date column missing or all formats fail
+        DateParsingError: If date column missing or all formats fail
     """
     if "date" not in df.columns:
-        raise ValueError(
+        raise DateParsingError(
             "Required 'date' column missing from DataFrame. "
-            "Cannot proceed with temporal analysis."
+            "Cannot proceed with temporal analysis.",
+            details={"available_columns": list(df.columns)[:10]}
         )
     
     # Ensure date column is string type
@@ -299,7 +375,7 @@ def standardize_date_column(df: pl.DataFrame) -> pl.DataFrame:
         ("%Y-%m-%d", "YYYY-MM-DD (ISO standard)"),
         ("%d/%m/%Y", "DD/MM/YYYY (alternate)"),
         ("%Y-%m-%d %H:%M:%S", "YYYY-MM-DD HH:MM:SS (Timestamp)"),
-        ("%Y-%m-%d %H:%M:%S.%f", "YYYY-MM-DD HH:MM:SS. micros (Timestamp)"),
+        ("%Y-%m-%d %H:%M:%S.%f", "YYYY-MM-DD HH:MM:SS.micros (Timestamp)"),
     ]
     
     for fmt, description in formats_to_try:
@@ -307,17 +383,20 @@ def standardize_date_column(df: pl.DataFrame) -> pl.DataFrame:
             parsed_df = df.with_columns(
                 pl.col("date").str.strptime(pl.Date, fmt, strict=True).alias("date")
             )
-            # print(f"  ✓ Date parsing successful using format: {description}")
+            logger.debug(f"Date parsing successful using format: {description}")
             return parsed_df
         except Exception:
             continue
     
     # If all formats fail, provide helpful error
     sample_dates = df.select("date").head(5).to_series().to_list()
-    raise ValueError(
-        f"Date parsing failed for all supported formats.\n"
-        f"Sample date values: {sample_dates}\n"
-        f"Supported formats: DD-MM-YYYY, YYYY-MM-DD, DD/MM/YYYY"
+    logger.error(f"Date parsing failed. Sample values: {sample_dates}")
+    raise DateParsingError(
+        "Date parsing failed for all supported formats",
+        details={
+            "sample_values": sample_dates,
+            "supported_formats": ["DD-MM-YYYY", "YYYY-MM-DD", "DD/MM/YYYY"]
+        }
     )
 
 
@@ -501,6 +580,12 @@ def run_ingestion_pipeline(
         # Load all files
         df = load_all_files_for_type(file_paths, sample_size)
         print(f"  - Loaded {len(df):,} rows")
+        
+        # Deduplicate rows (handles duplicate uploads)
+        df, duplicates_removed = deduplicate_dataframe(df)
+        if duplicates_removed > 0:
+            print(f"  - Removed {duplicates_removed:,} duplicate rows")
+        print(f"  - Unique rows: {len(df):,}")
         
         # VALIDATION GATE: Check required columns exist
         print(f"  - Validating schema...")

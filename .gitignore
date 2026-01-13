@@ -1,4 +1,6 @@
-# Python
+# =============================================================================
+# PYTHON
+# =============================================================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -22,45 +24,72 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Virtual Environment
+# =============================================================================
+# VIRTUAL ENVIRONMENT
+# =============================================================================
 .venv/
 venv/
 ENV/
 env/
 site-packages/
 
-# Environment Variables & Secrets
+# =============================================================================
+# ENVIRONMENT VARIABLES & SECRETS
+# =============================================================================
 .env
 .env.local
 .env.*.local
 *.secret
 secrets.json
 
-# IDE
+# =============================================================================
+# IDE & EDITORS
+# =============================================================================
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# UIDAI Project Specific
-data/raw/
-*.csv
-# Allow processed data if needed, or exclude all data? 
-# User said "raw UIDAI CSV data (unless explicitly allowed)". 
-# I will assume 'data/*.csv' should be ignored but maybe 'data/processed' is okay? 
-# To be safe, let's ignore csv files in data, but user said "raw UIDAI CSV data".
-# Often raw data is in a folder. I see a 'data' folder in the file list.
-# I will ignore all .csv for now unless in specific allow list, or just ignore data/raw if it exists.
-# Let's be safe and ignore .csv generally but allow if they are test data? 
-# The user said "raw UIDAI CSV data". I'll put explicit ignore for that.
-# I will also add a generic *.csv but maybe comment it out or put it at the end if the user wants to commit some csvs.
-# "Ensure the following are NOT committed: ... raw UIDAI CSV data"
-# I'll effectively ignore data/ unless it's small config files.
-# Actually, the file list showed `src`, `data`, `processed`.
-# I will ignore `data/` but user might want to keep directory structure.
-# I'll add .keep files later if needed. For now:
+# =============================================================================
+# TESTING & COVERAGE
+# =============================================================================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
 
+# =============================================================================
+# DATA FILES (Raw UIDAI Data)
+# =============================================================================
 data/*.csv
 data/raw/
+data/api_data_*/
+data/manual/
 processed/*.csv
 
-# Logs
+# Keep directory structure
+!data/.gitkeep
+!data/manual/.gitkeep
+
+# =============================================================================
+# LOGS & TEMP FILES
+# =============================================================================
 *.log
+*.tmp
+debug_*.py
+debug_*.txt
+test_*.tmp
+verification.txt
+
+# =============================================================================
+# OS GENERATED
+# =============================================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
