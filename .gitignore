@@ -69,12 +69,15 @@ coverage.xml
 data/*.csv
 data/raw/
 data/api_data_*/
-data/manual/
+data/manual/*
 processed/*.csv
 
 # Keep directory structure
 !data/.gitkeep
 !data/manual/.gitkeep
+
+# Junk/Temp
+.venv_junk/
 
 # =============================================================================
 # LOGS & TEMP FILES
