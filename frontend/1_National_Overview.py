@@ -64,6 +64,9 @@ st.markdown(
 def main():
     """Main dashboard entry point."""
     
+    from frontend.guardrails import require_data
+
+    # Function to auto-ingest manual data on startup
     if "auto_ingest_run" not in st.session_state:
         try:
             from src.engines.data_ingestion_manager import HardenedDataIngestionManager
@@ -74,30 +77,9 @@ def main():
         except:
             st.session_state["auto_ingest_run"] = True
 
-    from src.engines.data_ingestion_manager import check_data_availability
-    data_available, data_status = check_data_availability()
-    
-    if st.session_state.get("drill_down_active", False):
-        drill_down.render_evidence_page(
-            st.session_state.drill_down_metric,
-            st.session_state.drill_down_params
-        )
-        return
-    
+    # Enforce Data Availability
+    require_data()
 
-    
-    if not data_available:
-        st.markdown(styles.render_header("Aadhaar Sanket", "National Demographic Overview"), unsafe_allow_html=True)
-        
-        st.markdown(styles.clean_html("""
-        <div class="alert-card-critical">
-            <h3 style="margin-top: 0;">🚫 Action Required: Upload Data</h3>
-            <p>The system requires official UIDAI datasets to perform analysis.</p>
-            <p style="margin-top: 1rem;">Navigate to <strong>Data Ingestion</strong> in the sidebar to proceed.</p>
-        </div>
-        """), unsafe_allow_html=True)
-        st.stop()
-    
     st.markdown(styles.render_header("Aadhaar Sanket", "National Demographic Overview"), unsafe_allow_html=True)
     
     @st.cache_data(show_spinner="Loading analytics...")

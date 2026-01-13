@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-01-13T17:06:19.922562",
+  "generated_at": "2026-01-13T20:19:02.237499",
   "total_insights": 867,
   "insights": [
     {
@@ -504,7 +504,7 @@
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
         "Structural pattern (persistence: 100.0%)",
-        "High impact: 10,367 people affected",
+        "High impact: 17,730 people affected",
         "Seasonal migration pattern detected"
       ],
       "confidence": "Medium confidence assessment (score: 0.64). Limiting factors: High noise (SNR=1.3)",
@@ -643,7 +643,8 @@
       "summary": "Balangir shows volatile migration activity over 6 months, driven by demographic updates, with accelerating pressure. Confidence: medium.",
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
-        "Structural pattern (persistence: 100.0%)"
+        "Structural pattern (persistence: 100.0%)",
+        "High impact: 11,457 people affected"
       ],
       "confidence": "Medium confidence assessment (score: 0.65). Limiting factors: High noise (SNR=1.3)",
       "action": "Urgent Intervention Required"
@@ -937,8 +938,7 @@
       "summary": "Bargarh shows volatile migration activity over 6 months, driven by demographic updates, with accelerating pressure. Confidence: medium.",
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
-        "Structural pattern (persistence: 100.0%)",
-        "Moderate impact: 3,870 people affected"
+        "Structural pattern (persistence: 100.0%)"
       ],
       "confidence": "Medium confidence assessment (score: 0.69). Limiting factors: High noise (SNR=1.7)",
       "action": "Data Quality Audit"
@@ -2555,6 +2555,7 @@
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
         "Structural pattern (persistence: 100.0%)",
+        "Moderate impact: 1,820 people affected",
         "Seasonal migration pattern detected"
       ],
       "confidence": "Medium confidence assessment (score: 0.61). Limiting factors: High noise (SNR=1.0)",
@@ -3055,8 +3056,7 @@
       "summary": "Ganjam shows volatile migration activity over 6 months, driven by demographic updates, with accelerating pressure. Confidence: medium.",
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
-        "Structural pattern (persistence: 100.0%)",
-        "Moderate impact: 9,866 people affected"
+        "Structural pattern (persistence: 100.0%)"
       ],
       "confidence": "Medium confidence assessment (score: 0.61). Limiting factors: High noise (SNR=1.0)",
       "action": "Urgent Intervention Required"
@@ -3690,7 +3690,7 @@
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
         "Structural pattern (persistence: 100.0%)",
-        "Moderate impact: 4,178 people affected",
+        "High impact: 22,439 people affected",
         "Seasonal migration pattern detected"
       ],
       "confidence": "Medium confidence assessment (score: 0.59). Limiting factors: High noise (SNR=0.9); High variability",
@@ -3831,7 +3831,8 @@
       "summary": "Jajapur shows volatile migration activity over 6 months, driven by demographic updates, with accelerating pressure. Confidence: medium.",
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
-        "Structural pattern (persistence: 100.0%)"
+        "Structural pattern (persistence: 100.0%)",
+        "Moderate impact: 2,411 people affected"
       ],
       "confidence": "Medium confidence assessment (score: 0.60). Limiting factors: High noise (SNR=1.0); High variability",
       "action": "Urgent Intervention Required"
@@ -4382,6 +4383,7 @@
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
         "Structural pattern (persistence: 100.0%)",
+        "Moderate impact: 6,212 people affected",
         "Seasonal migration pattern detected"
       ],
       "confidence": "Medium confidence assessment (score: 0.69). Limiting factors: High noise (SNR=1.7)",
@@ -4612,7 +4614,7 @@
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
         "Structural pattern (persistence: 100.0%)",
-        "Moderate impact: 1,244 people affected",
+        "High impact: 10,963 people affected",
         "Seasonal migration pattern detected"
       ],
       "confidence": "Medium confidence assessment (score: 0.68). Limiting factors: High noise (SNR=1.6)",
@@ -4742,7 +4744,8 @@
       "summary": "Kendrapara shows volatile migration activity over 6 months, driven by demographic updates, with accelerating pressure. Confidence: medium.",
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
-        "Structural pattern (persistence: 100.0%)"
+        "Structural pattern (persistence: 100.0%)",
+        "Moderate impact: 3,737 people affected"
       ],
       "confidence": "Medium confidence assessment (score: 0.58). Limiting factors: High noise (SNR=0.8); High variability",
       "action": "Data Quality Audit"
@@ -4789,7 +4792,7 @@
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
         "Structural pattern (persistence: 100.0%)",
-        "Moderate impact: 1,253 people affected",
+        "Moderate impact: 4,300 people affected",
         "Seasonal migration pattern detected"
       ],
       "confidence": "Medium confidence assessment (score: 0.65). Limiting factors: High noise (SNR=1.3)",
@@ -6539,8 +6542,7 @@
       "summary": "Nayagarh shows volatile migration activity over 6 months, driven by demographic updates, with accelerating pressure. Confidence: medium.",
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
-        "Structural pattern (persistence: 100.0%)",
-        "Moderate impact: 2,321 people affected"
+        "Structural pattern (persistence: 100.0%)"
       ],
       "confidence": "Medium confidence assessment (score: 0.59). Limiting factors: High noise (SNR=0.8); High variability",
       "action": "Urgent Intervention Required"
@@ -7248,7 +7250,7 @@
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
         "Structural pattern (persistence: 100.0%)",
-        "Moderate impact: 6,537 people affected",
+        "Moderate impact: 2,406 people affected",
         "Seasonal migration pattern detected"
       ],
       "confidence": "Medium confidence assessment (score: 0.56). Limiting factors: High noise (SNR=0.6); High variability",
@@ -9806,7 +9808,7 @@
       "findings": [
         "Strong volatile pattern (strength: 1.00)",
         "Structural pattern (persistence: 100.0%)",
-        "Moderate impact: 1,193 people affected"
+        "Moderate impact: 3,326 people affected"
       ],
       "confidence": "Medium confidence assessment (score: 0.62). Limiting factors: High noise (SNR=1.1)",
       "action": "Urgent Intervention Required"

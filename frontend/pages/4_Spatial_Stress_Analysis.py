@@ -26,6 +26,10 @@ import frontend.chart_config as chart_config
 # Apply global CSS
 st.markdown(styles.get_global_css(), unsafe_allow_html=True)
 
+# Enforce Data Availability
+from frontend.guardrails import require_data
+require_data()
+
 # Initialize drill-down
 drill_down.init_navigation()
 

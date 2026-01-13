@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Set
 from datetime import datetime
 import polars as pl
+from src.config import PARQUET_DIR, REPORTS_DIR
 
 
 class HardenedDataIngestionManager:
@@ -282,6 +283,14 @@ class HardenedDataIngestionManager:
         
         if not is_valid:
              self._log("❌ Pipeline Locked: Missing required datasets", "ERROR")
+             
+             # Check if ALL data is missing (User requested cleanup if no data)
+             # summary has keys like 'enrolment_files', 'biometric_files', etc.
+             total_files = sum(v for k, v in summary.items() if k.endswith("_files"))
+             
+             if total_files == 0:
+                 self.cleanup_artifacts()
+                 
         else:
              self._log("✅ Validation Passed: Pipeline Ready", "SUCCESS")
 
@@ -290,6 +299,31 @@ class HardenedDataIngestionManager:
             "errors": missing,
             "summary": summary
         }
+
+    def cleanup_artifacts(self):
+        """Clean up processed artifacts if source data is missing."""
+        self._log("Cleaning up stale artifacts due to missing source data...", "INFO")
+        try:
+            # Delete parquet files
+            if PARQUET_DIR.exists():
+                for f in PARQUET_DIR.glob("*.parquet"):
+                    try:
+                        f.unlink()
+                        self._log(f"Deleted {f.name}", "INFO")
+                    except Exception as e:
+                         self._log(f"Failed to delete {f.name}: {e}", "ERROR")
+            
+            # Delete reports
+            if REPORTS_DIR.exists():
+                for f in REPORTS_DIR.glob("*"):
+                     if f.is_file(): 
+                        try:
+                            f.unlink()
+                        except: pass
+            
+            self._log("Artifacts cleanup completed.", "SUCCESS")
+        except Exception as e:
+            self._log(f"Cleanup failed: {e}", "ERROR")
 
     def process_upload(self, uploaded_files):
         """

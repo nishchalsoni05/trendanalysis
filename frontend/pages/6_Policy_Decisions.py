@@ -24,6 +24,10 @@ import frontend.drill_down as drill_down
 # Apply global styles
 st.markdown(styles.get_global_css(), unsafe_allow_html=True)
 
+# Enforce Data Availability
+from frontend.guardrails import require_data
+require_data()
+
 # Drill-down handler
 drill_down.init_navigation()
 if st.session_state.get("drill_down_active", False):
