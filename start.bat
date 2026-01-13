@@ -18,7 +18,8 @@ if errorlevel 1 (
 echo Starting Streamlit dashboard...
 echo.
 echo Dashboard will open in your browser automatically.
-echo Press Ctrl+C to stop the server.
+echo Press Ctrl+C techo Starting Aadhaar Sanket Dashboard...
 echo.
 
-streamlit run frontend/app.py
+streamlit run frontend/1_National_Overview.py
+pause

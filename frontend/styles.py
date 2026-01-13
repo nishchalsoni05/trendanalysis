@@ -22,7 +22,11 @@ def get_global_css():
             --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
-        * {
+        html, body, .stApp {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        }
+
+        h1, h2, h3, h4, h5, h6, p, label, li, td, th, input, textarea, button {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
         }
 
@@ -36,19 +40,7 @@ def get_global_css():
             max-width: 1400px !important;
         }
 
-        /* FORCE BLACK TEXT EVERYWHERE */
-        p, span, div, label, li, td, th, input, textarea {
-            color: var(--text-black) !important;
-        }
 
-        h1, h2, h3, h4, h5, h6 {
-            color: var(--text-black) !important;
-            font-weight: 700 !important;
-        }
-
-        h1 { font-size: 2.5rem !important; }
-        h2 { font-size: 2rem !important; }
-        h3 { font-size: 1.5rem !important; }
 
         /* GLASSMORPHIC CARDS */
         .glass-card {
@@ -121,9 +113,12 @@ def get_global_css():
         }
 
         .metric-value {
-            font-size: 2rem;
-            font-weight: 700;
+            font-size: 1.2rem;
+            font-weight: 800;
             color: var(--text-black) !important;
+            white-space: nowrap !important;
+            letter-spacing: -0.9px;
+            line-height: 1;
         }
 
         .metric-label {
@@ -215,50 +210,120 @@ def get_global_css():
             color: var(--accent-saffron) !important;
         }
 
-        /* BUTTONS */
-        .stButton > button {
-            background: linear-gradient(135deg, var(--accent-saffron), var(--accent-orange));
+        /* FORCE ALL BUTTONS TO MATCH EXACTLY (Reset & Browse) */
+        .stButton > button,
+        .stButton > button:first-child,
+        div.stButton > button,
+        button[kind="primary"],
+        button[kind="secondary"],
+        [data-testid="stFileUploader"] button,
+        [data-testid="stFileUploader"] button:first-child {
+            background: linear-gradient(135deg, #EA580C, #C2410C) !important;
+            background-color: #EA580C !important; /* Fallback */
             color: #FFFFFF !important;
-            border: none;
-            border-radius: 12px;
-            padding: 0.75rem 1.5rem;
-            font-weight: 600;
-            box-shadow: var(--shadow-soft);
+            border: none !important;
+            border-radius: 12px !important;
+            padding: 0.4rem 1rem !important;
+            font-weight: 600 !important;
+            box-shadow: var(--shadow-soft) !important;
+            white-space: nowrap !important;
+            min-height: auto !important;
+            opacity: 1 !important;
         }
 
-        .stButton > button:hover {
+        .stButton > button:hover,
+        .stButton > button:first-child:hover,
+        button[kind="primary"]:hover,
+        button[kind="secondary"]:hover,
+        [data-testid="stFileUploader"] button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .stButton > button * {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+            background: linear-gradient(135deg, #C2410C, #9A3412) !important;
             color: #FFFFFF !important;
         }
 
-        /* FORM INPUTS */
-        div[data-baseweb="select"] {
-            background: rgba(255, 255, 255, 0.9) !important;
-            border: 1px solid var(--border-light) !important;
-            border-radius: 8px;
+        .stButton > button:active, 
+        .stButton > button:focus,
+        .stButton > button:first-child:focus,
+        button[kind="primary"]:focus,
+        [data-testid="stFileUploader"] button:active,
+        [data-testid="stFileUploader"] button:focus {
+             color: #FFFFFF !important;
+             border-color: transparent !important;
+             box-shadow: none !important;
+             outline: none !important;
+        }
+        
+        /* Secondary Buttons - Solid Orange */
+        button[kind="secondary"] {
+             background: linear-gradient(135deg, #EA580C, #C2410C) !important;
+             border: none !important;
+             color: #FFFFFF !important;
         }
 
-        div[data-baseweb="select"] * {
-            color: var(--text-black) !important;
+        /* FORM INPUTS & DROPDOWNS (Aggressive White Theme) */
+        div[data-baseweb="select"] > div,
+        div[data-baseweb="base-input"] {
+            background-color: #FFFFFF !important;
+            border: 1px solid #E2E8F0 !important;
+            border-radius: 8px;
+            color: #000000 !important;
+        }
+
+        div[data-baseweb="select"] span {
+            color: #000000 !important;
+        }
+        
+        /* Dropdown menu container */
+        div[data-baseweb="popover"] > div,
+        div[role="listbox"] {
+            background-color: #FFFFFF !important;
+        }
+        
+        /* Dropdown items */
+        div[role="listbox"] li {
+            background-color: #FFFFFF !important; 
+            color: #000000 !important;
+        }
+        
+        div[role="listbox"] li:hover {
+            background-color: #FFF7ED !important; /* light orange hover */
+        }
+        
+        /* Multiselect Tags */
+        div[data-baseweb="tag"] {
+            background-color: #FFF7ED !important;
+            border: 1px solid #FED7AA !important;
+        }
+        
+        div[data-baseweb="tag"] span {
+            color: #C2410C !important; /* dark orange text */
+        }
+        
+        div[data-baseweb="tag"] svg {
+            color: #C2410C !important;
         }
 
         input, textarea {
-            background: rgba(255, 255, 255, 0.9) !important;
-            border: 1px solid var(--border-light) !important;
-            border-radius: 8px;
-            color: var(--text-black) !important;
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+            caret-color: #000000 !important;
         }
 
         /* FILE UPLOADER */
         [data-testid="stFileUploader"] {
-            background: var(--bg-card);
-            border: 2px dashed var(--border-light);
+            background-color: #FFFFFF !important; /* Force White Background */
+            border: 2px dashed #E2E8F0 !important;
             border-radius: 16px;
             padding: 2rem;
+        }
+        
+        [data-testid="stFileUploader"] section {
+            background-color: #FFFFFF !important;
+        }
+        
+        [data-testid="stFileUploader"] span, [data-testid="stFileUploader"] small, [data-testid="stFileUploader"] div {
+            color: var(--text-black) !important;
         }
 
         /* DATA TABLES */
@@ -302,15 +367,30 @@ def get_global_css():
 
         /* EXPANDERS */
         .streamlit-expanderHeader {
-            background: var(--bg-card) !important;
-            border: 1px solid var(--border-light);
+            background-color: var(--bg-card) !important;
+            border: 1px solid var(--border-light) !important;
             border-radius: 12px;
-            color: var(--text-black) !important;
+            color: #000000 !important;
             padding: 0.75rem 1rem !important;
         }
 
-        .streamlit-expanderHeader:hover {
-            border-color: var(--accent-saffron);
+        .streamlit-expanderHeader:hover,
+        .streamlit-expanderHeader:active,
+        .streamlit-expanderHeader:focus,
+        .streamlit-expanderHeader:focus-visible,
+        div[data-testid="stExpander"] > details > summary:hover,
+        div[data-testid="stExpander"] > details > summary:focus {
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+            border-color: var(--accent-saffron) !important;
+            outline: none !important;
+        }
+
+        .streamlit-expanderHeader p, 
+        .streamlit-expanderHeader span,
+        .streamlit-expanderHeader svg {
+            color: #000000 !important;
+            fill: #000000 !important;
         }
 
         .streamlit-expanderContent {
@@ -321,23 +401,7 @@ def get_global_css():
             padding: 1rem !important;
         }
 
-        /* Fix expander icon overlap - hide the text, show only icon */
-        .streamlit-expanderHeader svg {
-            min-width: 1rem;
-        }
-        
-        /* Hide the material icon text that appears */
-        details summary::-webkit-details-marker {
-            display: none;
-        }
-        
-        details summary {
-            list-style: none;
-        }
-        
-        details summary::marker {
-            display: none;
-        }
+
 
         /* CHARTS */
         .js-plotly-plot {

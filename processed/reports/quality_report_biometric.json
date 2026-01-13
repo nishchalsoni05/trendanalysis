@@ -1,20 +1,18 @@
 {
   "dataset_type": "biometric",
-  "timestamp": "2026-01-12T14:40:54.389272",
-  "total_rows": 1861108,
+  "timestamp": "2026-01-13T17:06:15.208223",
+  "total_rows": 3722216,
   "total_columns": 8,
-  "overall_score": 66.7,
+  "overall_score": 100.0,
   "checks": [
     {
       "rule_id": "Q1",
       "rule_name": "Null Value Check (Critical Columns)",
-      "passed": false,
-      "message": "Found 1861108 null values (25.00%)",
-      "severity": "error",
+      "passed": true,
+      "message": "No null values in critical columns",
+      "severity": "info",
       "details": {
-        "null_counts": {
-          "date": 1861108
-        },
+        "null_counts": {},
         "threshold_percent": 5.0
       }
     },
@@ -31,10 +29,15 @@
     {
       "rule_id": "Q3",
       "rule_name": "Date Range Validation",
-      "passed": false,
-      "message": "Error parsing dates: '>=' not supported between instances of 'NoneType' and 'datetime.date'",
-      "severity": "error",
-      "details": null
+      "passed": true,
+      "message": "Data spans 2025-03-01 to 2025-12-29",
+      "severity": "info",
+      "details": {
+        "min_date": "2025-03-01",
+        "max_date": "2025-12-29",
+        "expected_start": "2025-01-01",
+        "expected_end": "2025-12-31"
+      }
     },
     {
       "rule_id": "Q4",
@@ -56,11 +59,11 @@
       "severity": "info",
       "details": {
         "age_5_17_count": {
-          "zero_count": 287670,
+          "zero_count": 575340,
           "zero_percent": 15.46
         },
         "age_17_plus_count": {
-          "zero_count": 196095,
+          "zero_count": 392190,
           "zero_percent": 10.54
         }
       }
@@ -69,15 +72,18 @@
       "rule_id": "Q6",
       "rule_name": "Temporal Continuity Check",
       "passed": true,
-      "message": "Insufficient dates for continuity check",
+      "message": "Data covers 89 unique dates",
       "severity": "info",
-      "details": null
+      "details": {
+        "unique_dates": 89,
+        "date_range_days": 303
+      }
     }
   ],
   "summary": {
-    "passed": 4,
-    "failed": 2,
+    "passed": 6,
+    "failed": 0,
     "warnings": 0,
-    "errors": 2
+    "errors": 0
   }
 }

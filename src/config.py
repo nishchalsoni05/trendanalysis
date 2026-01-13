@@ -27,6 +27,25 @@ ENROLMENT_DIR = DATA_DIR / "api_data_aadhar_enrolment"
 PARQUET_DIR = PROCESSED_DIR / "parquet"
 REPORTS_DIR = PROCESSED_DIR / "reports"
 
+# Dataset file paths
+PROCESSED_FILES = {
+    "enrolment": PARQUET_DIR / "enrolment.parquet",
+    "demographic": PARQUET_DIR / "demographic.parquet",
+    "biometric": PARQUET_DIR / "biometric.parquet",
+    "mvi": PARQUET_DIR / "mvi_scores.parquet",
+    "anomalies": PARQUET_DIR / "anomalies.parquet",
+    # New Analytics Engines
+    "trend_typology": PARQUET_DIR / "trend_typology.parquet",
+    "persistence": PARQUET_DIR / "persistence_analysis.parquet",
+    "acceleration": PARQUET_DIR / "acceleration.parquet",
+    "seasonality": PARQUET_DIR / "seasonality.parquet",
+    "population_impact": PARQUET_DIR / "population_impact.parquet",
+    "trend_confidence": PARQUET_DIR / "trend_confidence.parquet",
+    "policy_recommendations": PARQUET_DIR / "policy_recommendations.parquet",
+    "insights": PARQUET_DIR / "insights.parquet",
+    "insights_json": REPORTS_DIR / "insights.json",
+}
+
 # =============================================================================
 # SCHEMA DEFINITIONS
 # =============================================================================

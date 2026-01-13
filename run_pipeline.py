@@ -21,12 +21,26 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-# Add src to path
 import sys
+import io
+
+# Force UTF-8 encoding for Windows console
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+import polars as pl
+
+# Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.config import PARQUET_DIR, REPORTS_DIR
-from src.engines.ingestion import run_ingestion_pipeline, load_processed_dataset
+# Import Engines
+from src.config import PARQUET_DIR, REPORTS_DIR, PROCESSED_FILES
+from src.engines.ingestion import (
+    run_ingestion_pipeline, 
+    load_processed_dataset,
+    save_dataset
+)
 from src.engines.quality import validate_dataset, print_quality_report, save_quality_report
 from src.engines.signal_separation import (
     apply_signal_weights,
@@ -34,24 +48,67 @@ from src.engines.signal_separation import (
     print_signal_report,
 )
 from src.engines.mvi import (
-    calculate_mvi,
+    calculate_mvi, 
     calculate_population_base,
+    calculate_rolling_mvi,
     generate_mvi_summary,
     print_mvi_report,
     get_top_mvi_regions,
 )
 from src.engines.spatial import (
     add_zone_classification,
+    detect_hotspot_clusters,
     aggregate_by_state,
     generate_spatial_summary,
-    print_spatial_summary,
-    detect_hotspot_clusters,
+    print_spatial_summary
 )
 from src.engines.anomaly import (
     detect_mvi_anomalies,
+    classify_anomaly_pattern,
+    contextualize_anomalies,
     generate_anomaly_report,
     print_anomaly_report,
-    generate_alerts,
+    generate_alerts
+)
+from src.engines.trend_typology import (
+    analyze_trend_typology,
+    generate_typology_summary,
+    print_typology_summary
+)
+from src.engines.persistence_analysis import (
+    analyze_persistence,
+    generate_persistence_summary,
+    print_persistence_summary
+)
+from src.engines.trend_acceleration import (
+    analyze_acceleration,
+    generate_acceleration_summary,
+    print_acceleration_summary
+)
+from src.engines.seasonality_detector import (
+    analyze_seasonality,
+    generate_seasonality_summary,
+    print_seasonality_summary
+)
+from src.engines.population_impact import (
+    analyze_population_impact,
+    generate_impact_summary,
+    print_impact_summary
+)
+from src.engines.trend_confidence import (
+    analyze_trend_confidence,
+    generate_confidence_summary,
+    print_confidence_summary
+)
+from src.engines.policy_mapper import (
+    generate_policy_recommendations,
+    generate_policy_summary,
+    print_policy_summary
+)
+from src.engines.insight_generator import (
+    generate_insights,
+    print_insights,
+    export_insights_to_json
 )
 
 
@@ -186,10 +243,13 @@ def run_full_pipeline(sample_size: int = None) -> dict:
         enrolment_df = load_processed_dataset("enrolment")
         population_df = calculate_population_base(enrolment_df, "district")
         
-        # Calculate MVI
+        # Calculate MVI (Snapshot)
         mvi_df = calculate_mvi(demographic_df, population_df, "district")
         
-        # Generate summary
+        # Calculate MVI (Time Series) for Trend Analytics
+        mvi_ts_df = calculate_rolling_mvi(demographic_df, population_df, "district")
+        
+        # Generate summary (Snapshot)
         mvi_summary = generate_mvi_summary(mvi_df)
         print_mvi_report(mvi_summary)
         
@@ -289,6 +349,91 @@ def run_full_pipeline(sample_size: int = None) -> dict:
     except Exception as e:
         results["stages"]["anomaly"] = {"status": "FAILED", "error": str(e)}
         print(f"\n✗ Anomaly detection failed: {e}")
+    
+    # =========================================================================
+    # STAGE 7: ADVANCED TREND ANALYTICS (PHASE 1 & 2)
+    # =========================================================================
+    print("\n" + "═" * 70)
+    print("STAGE 7: ADVANCED TREND ANALYTICS (TYPOLOGY, PERSISTENCE, IMPACT)")
+    print("═" * 70)
+
+    try:
+        # 7a. Trend Typology
+        typology_df = analyze_trend_typology(mvi_ts_df)
+        save_dataset(typology_df, "trend_typology")
+        print_typology_summary(generate_typology_summary(typology_df))
+        
+        # 7b. Persistence Analysis
+        persistence_df = analyze_persistence(mvi_ts_df)
+        save_dataset(persistence_df, "trend_persistence")
+        print_persistence_summary(generate_persistence_summary(persistence_df))
+        
+        # 7c. Trend Acceleration
+        acceleration_df = analyze_acceleration(mvi_ts_df)
+        save_dataset(acceleration_df, "acceleration")
+        print_acceleration_summary(generate_acceleration_summary(acceleration_df))
+        
+        # 7d. Seasonality
+        seasonality_df = analyze_seasonality(mvi_ts_df)
+        save_dataset(seasonality_df, "seasonality")
+        print_seasonality_summary(generate_seasonality_summary(seasonality_df))
+
+        # 7e. Population Impact
+        impact_df = analyze_population_impact(mvi_ts_df, population_df)
+        save_dataset(impact_df, "population_impact")
+        print_impact_summary(generate_impact_summary(impact_df))
+        
+        # 7f. Contextualize Anomalies
+        # Re-run anomaly detection with context
+        anomaly_context_df = contextualize_anomalies(anomaly_df, persistence_df)
+        save_dataset(anomaly_context_df, "anomalies") # Overwrite with enhanced
+        
+        results["stages"]["trend_analytics"] = {"status": "SUCCESS"}
+        print("\n✓ Advanced trend analytics completed")
+
+    except Exception as e:
+        results["stages"]["trend_analytics"] = {"status": "FAILED", "error": str(e)}
+        print(f"\n✗ Advanced trend analytics failed: {e}")
+
+    # =========================================================================
+    # STAGE 8: DECISION INTELLIGENCE (PHASE 3 & 4)
+    # =========================================================================
+    print("\n" + "═" * 70)
+    print("STAGE 8: DECISION INTELLIGENCE (CONFIDENCE, POLICY, INSIGHTS)")
+    print("═" * 70)
+
+    try:
+        # 8a. Trend Confidence
+        confidence_df = analyze_trend_confidence(mvi_ts_df)
+        save_dataset(confidence_df, "trend_confidence")
+        print_confidence_summary(generate_confidence_summary(confidence_df))
+        
+        # 8b. Policy Recommendations
+        policy_df = generate_policy_recommendations(
+            typology_df, impact_df, confidence_df, seasonality_df, acceleration_df
+        )
+        save_dataset(policy_df, "policy_recommendations")
+        print_policy_summary(generate_policy_summary(policy_df))
+        
+        # 8c. Insight Generation
+        insights_df = generate_insights(
+            typology_df, persistence_df, impact_df, confidence_df, 
+            acceleration_df, seasonality_df, policy_df
+        )
+        save_dataset(insights_df, "insights")
+        
+        # Export JSON for frontend
+        export_insights_to_json(insights_df, PROCESSED_FILES["insights_json"])
+        
+        print_insights(insights_df, limit=5)
+        
+        results["stages"]["decision_intelligence"] = {"status": "SUCCESS"}
+        print("\n✓ Decision intelligence generation completed")
+
+    except Exception as e:
+        results["stages"]["decision_intelligence"] = {"status": "FAILED", "error": str(e)}
+        print(f"\n✗ Decision intelligence failed: {e}")
+
     
     # =========================================================================
     # FINAL SUMMARY

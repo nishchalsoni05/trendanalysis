@@ -1,5 +1,5 @@
 {
-  "pipeline_start": "2026-01-12T14:40:50.258565",
+  "pipeline_start": "2026-01-13T17:06:04.384631",
   "stages": {
     "ingestion": {
       "status": "SUCCESS",
@@ -8,20 +8,20 @@
         "demographic",
         "enrolment"
       ],
-      "total_rows": 4938837
+      "total_rows": 9877674
     },
     "quality": {
       "biometric": {
-        "status": "FAIL",
-        "score": 66.7
+        "status": "PASS",
+        "score": 100.0
       },
       "demographic": {
-        "status": "FAIL",
-        "score": 66.7
+        "status": "PASS",
+        "score": 100.0
       },
       "enrolment": {
-        "status": "FAIL",
-        "score": 58.3
+        "status": "PASS",
+        "score": 91.7
       }
     },
     "signal_separation": {
@@ -31,27 +31,34 @@
     },
     "mvi": {
       "status": "SUCCESS",
-      "total_units": 876,
-      "mean_mvi": 10394.29,
-      "high_pressure_count": 873
+      "total_units": 905,
+      "mean_mvi": 10394.61,
+      "high_pressure_count": 902
     },
     "spatial": {
       "status": "SUCCESS",
       "zone_distribution": {
-        "stable": 1,
+        "high_inflow": 902,
         "moderate_inflow": 2,
-        "high_inflow": 873
+        "stable": 1
       },
-      "states_covered": 39
+      "states_covered": 43
     },
     "anomaly": {
       "status": "SUCCESS",
-      "anomaly_count": 33,
+      "anomaly_count": 35,
       "risk_level": "HIGH",
       "alerts_generated": 3
+    },
+    "trend_analytics": {
+      "status": "FAILED",
+      "error": "unable to find column \"anomaly_persistence\"; valid columns: [\"state\", \"district\", \"signal_adjusted_sum\", \"raw_count_sum\", \"population_base\", \"mvi\", \"mvi_band\", \"mvi_color\", \"confidence\", \"zone_type\", \"zone_color\", \"is_cluster\", \"high_mvi_count\", \"z_score\", \"is_anomaly\", \"anomaly_type\", \"severity\"]"
+    },
+    "decision_intelligence": {
+      "status": "SUCCESS"
     }
   },
   "success": true,
-  "pipeline_end": "2026-01-12T14:40:54.995014",
-  "duration_seconds": 4.736449
+  "pipeline_end": "2026-01-13T17:06:19.937287",
+  "duration_seconds": 15.552656
 }

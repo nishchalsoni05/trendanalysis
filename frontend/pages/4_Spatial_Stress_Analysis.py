@@ -21,6 +21,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # Import centralized styling system
 import frontend.styles as styles
 import frontend.drill_down as drill_down
+import frontend.chart_config as chart_config
 
 # Apply global CSS
 st.markdown(styles.get_global_css(), unsafe_allow_html=True)
@@ -156,9 +157,6 @@ with col1:
         hole=0.4,
     )
     fig.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#0F172A", family="Inter"),
         height=350,
         showlegend=True,
         legend=dict(
@@ -170,6 +168,7 @@ with col1:
         ),
         margin=dict(l=0, r=0, t=0, b=0)
     )
+    chart_config.apply_dark_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
 
 with col2:

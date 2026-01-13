@@ -259,15 +259,103 @@ def detect_mvi_anomalies(
 
 
 # =============================================================================
-# STRUCTURAL VS SEASONAL ANALYSIS
+# ANOMALY CONTEXTUALIZATION (ROOT CAUSE CLASSIFICATION)
 # =============================================================================
+
+def contextualize_anomalies(
+    df: pl.DataFrame,
+    persistence_df: pl.DataFrame = None,
+    signal_df: pl.DataFrame = None
+) -> pl.DataFrame:
+    """
+    Classify anomalies by root cause.
+    
+    Context Types:
+    - structural_shift: Persistence + signal mix change
+    - external_shock: Single spike + no persistence
+    - admin_artifact: Timing aligned with known events
+    - data_suppression: Sudden drop in update volume
+    
+    Args:
+        df: DataFrame with anomaly flags
+        persistence_df: Optional persistence analysis results
+        signal_df: Optional signal separation results
+        
+    Returns:
+        DataFrame with context classification
+    """
+    if "is_anomaly" not in df.columns:
+        return df
+    
+    # Calculate persistence if not provided
+    if persistence_df is None:
+        # Simple persistence calculation
+        geo_columns = [c for c in ["state", "district"] if c in df.columns]
+        if geo_columns and "date" in df.columns:
+            anomaly_freq = df.group_by(geo_columns).agg(
+                (pl.col("is_anomaly").sum() / pl.count() * 100).alias("anomaly_persistence")
+            )
+            df = df.join(anomaly_freq, on=geo_columns, how="left")
+        else:
+            df = df.with_columns(pl.lit(0.0).alias("anomaly_persistence"))
+    else:
+        # Join with provided persistence data
+        geo_columns = [c for c in ["state", "district"] if c in df.columns and c in persistence_df.columns]
+        if geo_columns:
+            persistence_subset = persistence_df.select(geo_columns + ["persistence_score"])
+            df = df.join(
+                persistence_subset.rename({"persistence_score": "anomaly_persistence"}),
+                on=geo_columns,
+                how="left"
+            )
+    
+    # Classify context
+    df = df.with_columns(
+        pl.when((pl.col("is_anomaly")) & (pl.col("anomaly_persistence") > 70))
+        .then(pl.lit("structural_shift"))
+        .when((pl.col("is_anomaly")) & (pl.col("anomaly_type") == "SPIKE") & (pl.col("anomaly_persistence") < 20))
+        .then(pl.lit("external_shock"))
+        .when((pl.col("is_anomaly")) & (pl.col("anomaly_type") == "DROP"))
+        .then(pl.lit("data_suppression"))
+        .when(pl.col("is_anomaly"))
+        .then(pl.lit("admin_artifact"))
+        .otherwise(pl.lit("normal"))
+        .alias("anomaly_context")
+    )
+    
+    # Add confidence score
+    df = df.with_columns(
+        pl.when(pl.col("anomaly_context") == "structural_shift")
+        .then(pl.col("anomaly_persistence") / 100)
+        .when(pl.col("anomaly_context") == "external_shock")
+        .then((100 - pl.col("anomaly_persistence")) / 100)
+        .otherwise(0.5)
+        .alias("context_confidence")
+    )
+    
+    # Generate supporting evidence
+    df = df.with_columns(
+        pl.when(pl.col("anomaly_context") == "structural_shift")
+        .then(pl.lit("High persistence pattern indicates fundamental demographic change"))
+        .when(pl.col("anomaly_context") == "external_shock")
+        .then(pl.lit("Isolated spike suggests temporary external event"))
+        .when(pl.col("anomaly_context") == "data_suppression")
+        .then(pl.lit("Sudden drop may indicate data collection issues"))
+        .when(pl.col("anomaly_context") == "admin_artifact")
+        .then(pl.lit("Pattern suggests administrative process artifact"))
+        .otherwise(pl.lit("Normal variation"))
+        .alias("context_evidence")
+    )
+    
+    return df
+
 
 def classify_anomaly_pattern(
     df: pl.DataFrame,
     min_consecutive_days: int = 7
 ) -> pl.DataFrame:
     """
-    Classify anomalies as structural or transient.
+    Classify anomalies as structural or transient (legacy function).
     
     Structural anomalies: Sustained deviation over time
     Transient anomalies: Temporary spikes/drops
@@ -316,6 +404,7 @@ def classify_anomaly_pattern(
     )
     
     return df
+
 
 
 # =============================================================================

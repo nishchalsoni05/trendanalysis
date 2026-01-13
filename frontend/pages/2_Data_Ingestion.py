@@ -83,7 +83,7 @@ def confirm_reset():
 
 col_header, col_btn = st.columns([6, 2])
 with col_btn:
-    if st.button("🗑️ Reset System", help="Delete ALL data and reset cache", use_container_width=True):
+    if st.button("🗑️ Reset System", type="primary", help="Delete ALL data and reset cache", use_container_width=True):
         confirm_reset()
 
 # Status Display
@@ -126,49 +126,54 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Callback to handle state clearing
+def clear_uploader():
+    st.session_state["file_uploader"] = []
+
 uploaded_files = st.file_uploader(
-    "📁 Select Files (Drag & Drop)",
+    "📁 Select Files (Drag & Drop) - Auto-Process Enabled",
     accept_multiple_files=True,
     type=["csv", "zip", "tar", "gz", "rar"],
     key="file_uploader"
 )
 
 if uploaded_files:
-    if st.button("🚀 Upload & Process Files", type="primary", use_container_width=True):
-        st.markdown("### 🔄 Processing...")
-        progress_bar = st.progress(0)
-        status_text = st.empty()
+    # Auto-process immediately without button
+    st.markdown("### 🔄 Auto-Processing Upload...")
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    try:
+        status_text.text("Ingesting and Organizing...")
+        progress_bar.progress(30)
         
-        try:
-            status_text.text("Ingesting...")
-            progress_bar.progress(30)
-            
-            results = manager.process_upload(uploaded_files)
-            
-            progress_bar.progress(100)
-            status_text.text("Done!")
-            
-            st.markdown("### 📋 Audit Log")
-            with st.expander("View Processing Details", expanded=True):
-                for entry in manager.log:
-                    msg = entry["msg"]
-                    level = entry.get("level", "INFO")
-                    if level == "ERROR":
-                        st.error(msg)
-                    elif level == "SUCCESS":
-                        st.success(msg)
-                    else:
-                        st.text(msg)
-            
-            if results["valid"]:
-                 st.success("✅ Files organized! Validation scan running...")
-                 time.sleep(1)
-                 st.rerun()
-            else:
-                 st.error("❌ Validation Failed. Some required datasets are still missing.")
+        results = manager.process_upload(uploaded_files)
         
-        except Exception as e:
-            st.error(f"Critical Error: {e}")
+        progress_bar.progress(100)
+        status_text.text("Ingestion Complete!")
+        
+        # Display logs briefly
+        with st.expander("Processing Log", expanded=False):
+            for entry in manager.log:
+                st.text(entry["msg"])
+        
+        if results["valid"]:
+                st.success("✅ Files organized! Starting pipeline...")
+                # Set flag to auto-run pipeline on next rerun
+                st.session_state["auto_run_pipeline"] = True
+                # Clear the uploader to prevent re-looping
+                del st.session_state["file_uploader"]
+                time.sleep(1)
+                st.rerun()
+        else:
+                st.error("❌ Validation Failed. Missing required datasets.")
+                # Clear uploader anyway to allow retry
+                del st.session_state["file_uploader"] 
+                time.sleep(2)
+                st.rerun()
+    
+    except Exception as e:
+        st.error(f"Critical Ingestion Error: {e}")
 
 # Manual Fallback
 st.markdown("## 🔍 Scan Workspace (Manual Fallback)")
@@ -197,20 +202,9 @@ if st.button("🔎 Scan & Organize Workspace", use_container_width=True):
         progress_bar.progress(100)
         status_text.text("Done!")
         
-        st.markdown("### 📋 Audit Log")
-        with st.expander("View Scan Details", expanded=True):
-            for entry in manager.log:
-                msg = entry["msg"]
-                level = entry.get("level", "INFO")
-                if level == "ERROR":
-                    st.error(msg)
-                elif level == "SUCCESS":
-                    st.success(msg)
-                else:
-                    st.text(msg)
-        
         if results["valid"]:
-             st.success("✅ Files successfully organized!")
+             st.success("✅ Files successfully organized! Triggering pipeline...")
+             st.session_state["auto_run_pipeline"] = True
              time.sleep(1)
              st.rerun()
         else:
@@ -221,26 +215,55 @@ if st.button("🔎 Scan & Organize Workspace", use_container_width=True):
 
 st.markdown("---")
 
-# Validation Gate
+# Validation Gate & Pipeline Trigger
 st.markdown("## ✅ Validation Gate")
+
+# Auto-run logic
+auto_run = st.session_state.get("auto_run_pipeline", False)
 
 if is_valid:
     st.markdown("""
     <div class="alert-card-success">
         <h4>✓ Pipeline Unlocked</h4>
-        <p>All required datasets (Enrolment, Demographic, Biometric) are present.</p>
+        <p>All required datasets are present. Pipeline ready.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("🚀 Run Analytics Pipeline", type="primary", use_container_width=True):
-        with st.spinner("Running full analytics pipeline..."):
+    # Combined Manual Button or Auto-Trigger
+    if auto_run or st.button("🚀 Run Analytics Pipeline", type="primary", use_container_width=True):
+        
+        # Reset flag immediately to prevent loops
+        if "auto_run_pipeline" in st.session_state:
+            del st.session_state["auto_run_pipeline"]
+            
+        with st.status("🚀 Executing Analytics Pipeline...", expanded=True) as status:
+            st.write("Initializing Pipeline Runner...")
             import subprocess
-            res = subprocess.run(["python", "run_pipeline.py"], capture_output=True, text=True, cwd=str(PROJECT_ROOT))
+            
+            # Using st.write to log stdout in real-time is hard with subprocess.run
+            # We'll stick to capture_output but show a spinner/status
+            
+            st.write("Running Stages 1-10 (Ingestion -> Analytics -> Insights)...")
+            res = subprocess.run(
+                ["python", "run_pipeline.py"], 
+                capture_output=True, 
+                text=True, 
+                cwd=str(PROJECT_ROOT)
+            )
+            
             if res.returncode == 0:
-                st.success("Pipeline Completed Successfully!")
-                st.code(res.stdout)
+                st.session_state["pipeline_success"] = True
+                status.update(label="✅ Pipeline Completed Successfully!", state="complete", expanded=False)
+                st.success("Pipeline Execution Successful!")
+                
+                with st.expander("View Execution Logs"):
+                    st.code(res.stdout)
+                    
+                # Option to clear cache to ensure new data loads
+                st.cache_data.clear()
             else:
-                st.error("Pipeline Failed")
+                status.update(label="❌ Pipeline Failed", state="error")
+                st.error("Pipeline Execution Failed")
                 st.code(res.stderr)
 else:
     missing = validation_status.get("errors", [])

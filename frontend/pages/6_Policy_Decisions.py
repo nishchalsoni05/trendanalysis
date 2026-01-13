@@ -1,33 +1,31 @@
 """
-Aadhaar Sanket - Policy Insights Page
-
-Plain-language interpretation for governance decisions.
-No equations or ML jargon - just actionable insights.
+Aadhaar Sanket - Policy & Decision Insights
 """
 import streamlit as st
+import polars as pl
+import json
 from pathlib import Path
 import sys
 
+# Configure page
 st.set_page_config(
     page_title="Policy & Decision Insights | Aadhaar Sanket",
     page_icon="⚖️",
     layout="wide",
 )
 
+# Setup path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Import centralized styling system
 import frontend.styles as styles
 import frontend.drill_down as drill_down
 
-# Apply global CSS
+# Apply global styles
 st.markdown(styles.get_global_css(), unsafe_allow_html=True)
 
-# Initialize drill-down
+# Drill-down handler
 drill_down.init_navigation()
-
-# Check drill-down state
 if st.session_state.get("drill_down_active", False):
     drill_down.render_evidence_page(
         st.session_state.drill_down_metric,
@@ -35,7 +33,7 @@ if st.session_state.get("drill_down_active", False):
     )
     st.stop()
 
-# Render header
+# Header
 st.markdown(
     styles.render_header(
         "Policy & Decision Insights",
@@ -43,218 +41,161 @@ st.markdown(
     ),
     unsafe_allow_html=True
 )
-
 st.markdown("---")
 
-@st.cache_data(show_spinner="Generating policy insights...")
-def load_policy_data():
-    """Load and process policy-relevant data with caching."""
+# Data Loading with Caching
+@st.cache_data
+def load_decision_data():
+    """Load pre-calculated decision intelligence data."""
     try:
-        from src.engines.ingestion import load_processed_dataset
-        from src.engines.signal_separation import apply_signal_weights
-        from src.engines.mvi import calculate_mvi, calculate_population_base, generate_mvi_summary
-        from src.engines.spatial import add_zone_classification, aggregate_by_state, detect_hotspot_clusters
-        from src.engines.anomaly import detect_mvi_anomalies, generate_anomaly_report
-        import polars as pl
+        data_path = PROJECT_ROOT / "processed" / "parquet"
         
-        demographic_df = load_processed_dataset("demographic")
-        enrolment_df = load_processed_dataset("enrolment")
+        # Load Parquet files
+        policy_df = pl.read_parquet(data_path / "policy_recommendations.parquet")
+        insights_df = pl.read_parquet(data_path / "insights.parquet")
         
-        demographic_df = apply_signal_weights(demographic_df, "demographic")
-        population_df = calculate_population_base(enrolment_df, "district")
-        mvi_df = calculate_mvi(demographic_df, population_df, "district")
-        mvi_df = add_zone_classification(mvi_df)
-        mvi_df = detect_hotspot_clusters(mvi_df)
-        
-        mvi_summary = generate_mvi_summary(mvi_df)
-        anomaly_df = detect_mvi_anomalies(mvi_df)
-        anomaly_report = generate_anomaly_report(anomaly_df)
-        
-        return mvi_df, mvi_summary, anomaly_report, True
+        # Load JSON Summary
+        with open(PROJECT_ROOT / "processed" / "reports" / "insights.json", "r") as f:
+            insights_json = json.load(f)
+            
+        return policy_df, insights_df, insights_json, True
+    except FileNotFoundError:
+        return None, None, None, False
     except Exception as e:
+        st.error(f"Error loading data: {e}")
         return None, None, None, False
 
-# Load data
-mvi_df, mvi_summary, anomaly_report, data_available = load_policy_data()
+policy_df, insights_df, insights_json, available = load_decision_data()
 
-if not data_available:
-    st.markdown(styles.clean_html("""
-    <div class="alert-card-warning">
-        <strong>⚠️ Data Not Processed</strong><br>
-        Please run the data pipeline to generate policy insights.
-    </div>
-    """), unsafe_allow_html=True)
-    st.info("Run: `python run_pipeline.py`")
+if not available:
+    st.warning("⚠️ Decision Intelligence data not found. Please run the analytics pipeline first.")
     st.stop()
 
-import polars as pl
+# --- DASHBOARD CONTENT ---
 
-# Executive Summary
-st.markdown("## 📊 Executive Summary")
+# Executive Summary Card
+total_insights = insights_json.get("total_insights", 0)
+generated_at = insights_json.get("generated_at", "Unknown")
 
-high_pressure = mvi_summary['interpretation']['high_pressure_count']
-elevated = mvi_summary['interpretation']['attention_needed'] - high_pressure
-total = mvi_summary['total_units']
-avg_mvi = mvi_summary['mvi_statistics']['mean']
+st.markdown(f"### 📊 Intelligence Summary (Generated: {generated_at.split('T')[0]})")
 
-# Create executive summary card using Saffron/Navy/Ivory theme
-# Using "alert-info" style generic container or custom glass card
-st.markdown(styles.clean_html(f"""
-<div class="glass-card">
-    <p style="color: #334155; font-size: 1rem; line-height: 1.8;">
-    Based on analysis of <strong style="color: #0F172A;">{total}</strong> districts across India:
-    </p>
-    <ul style="color: #475569; font-size: 0.95rem; line-height: 1.8;">
-        <li><span style="color: #DC2626; font-weight: 700;">{high_pressure} districts</span> show <strong>high demographic pressure</strong> requiring immediate attention</li>
-        <li><span style="color: #EA580C; font-weight: 700;">{elevated} districts</span> show <strong>elevated activity</strong> requiring monitoring</li>
-        <li>Overall migration velocity is <strong>{'above normal' if avg_mvi > 15 else 'within normal range'}</strong> (Average MVI: {avg_mvi:.1f})</li>
-    </ul>
-</div>
-"""), unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
 
-# Key Insights by Policy Domain
-st.markdown("---")
-st.markdown("## 🎯 Key Insights by Policy Domain")
-
-tab1, tab2, tab3 = st.tabs(["🗳️ Electoral", "🏙️ Urban Planning", "📊 Census"])
-
-with tab1:
-    st.markdown("### Electoral Preparedness Insights")
-    
-    st.markdown(styles.render_insight_card(
-        "How does migration affect electoral preparedness?",
-        f"{high_pressure} districts show high population churn and may have significant changes since the last electoral roll update. High-inflow areas may also need additional polling booths to accommodate new residents.",
-        "Prioritize electoral roll verification in high-MVI districts. Allocate additional booth planning resources for high-inflow areas. Cross-reference with local voter registration data.",
-        "🗳️"
-    ), unsafe_allow_html=True)
-    
-    # Show high MVI districts table
-    high_mvi = mvi_df.filter(pl.col("mvi") >= 30).sort("mvi", descending=True)
-    
-    if len(high_mvi) > 0:
-        st.markdown(f"**{len(high_mvi)} districts require electoral roll review:**")
-        
-        with st.expander("View Priority Districts"):
-            # Limit to 10 for performance
-            display_df = high_mvi.select([
-                "state", "district", "mvi"
-            ]).head(10).to_pandas()
-            
-            display_df.columns = ["State", "District", "MVI"]
-            display_df["MVI"] = display_df["MVI"].round(2)
-            
-            st.dataframe(
-                display_df,
-                hide_index=True,
-                use_container_width=True
-            )
-            
-            if len(high_mvi) > 10:
-                st.info(f"+ {len(high_mvi) - 10} more districts")
-
-with tab2:
-    st.markdown("### Urban Planning Insights")
-    
-    st.markdown(styles.render_insight_card(
-        "Which areas need infrastructure attention?",
-        f"{elevated} districts show elevated migration signals, indicating potential strain on water, electricity, transport, and housing. High-inflow areas may experience increased demand for municipal services.",
-        "Assess infrastructure capacity in high-pressure zones. Plan housing expansion in districts with sustained high MVI. Coordinate with municipal bodies for service capacity planning.",
-        "🏙️"
-    ), unsafe_allow_html=True)
-    
-    # State-level summary
-    from src.engines.spatial import aggregate_by_state
-    state_df = aggregate_by_state(mvi_df)
-    top_states = state_df.sort("mvi", descending=True).head(5)
-    
-    st.markdown("**Top 5 States by Migration Pressure:**")
-    for i, row in enumerate(top_states.to_dicts(), 1):
-        state_name = row['state']
-        state_mvi = row['mvi']
-        if state_mvi >= 30:
-            badge = styles.render_badge(f"MVI {state_mvi:.1f}", "high")
-        elif state_mvi >= 15:
-            badge = styles.render_badge(f"MVI {state_mvi:.1f}", "elevated")
-        else:
-            badge = styles.render_badge(f"MVI {state_mvi:.1f}", "moderate")
-        
-        st.markdown(f"{i}. **{state_name}** {badge} - Urban planning attention recommended", unsafe_allow_html=True)
-
-with tab3:
-    st.markdown("### Census Validation Insights")
-    
-    st.markdown(styles.render_insight_card(
-        "How does this help with census planning?",
-        f"Average MVI of {avg_mvi:.1f} suggests {'significant' if avg_mvi > 20 else 'moderate' if avg_mvi > 10 else 'minimal'} population redistribution since Census 2011. High-MVI districts may show larger discrepancies in census verification.",
-        "Allocate additional enumeration resources to high-turnover areas. Use MVI trends to validate population projection models. Plan for intensive verification in high-MVI districts.",
-        "📊"
-    ), unsafe_allow_html=True)
-    
-    # Summary assessment
-    if avg_mvi > 20:
-        st.markdown(styles.clean_html("""
-        <div class="alert-card-warning">
-            <strong>⚠️ High Overall Migration Activity</strong><br/>
-            Significant population redistribution since Census 2011. Recommend intensive census verification procedures.
-        </div>
-        """), unsafe_allow_html=True)
-    elif avg_mvi > 10:
-        st.markdown(styles.clean_html("""
-        <div class="alert-card-info">
-            <strong>ℹ️ Moderate Migration Activity</strong><br/>
-            Standard census validation procedures recommended with additional attention to high-MVI districts.
-        </div>
-        """), unsafe_allow_html=True)
-    else:
-        st.markdown(styles.clean_html("""
-        <div class="alert-card-success">
-            <strong>✓ Low Migration Activity</strong><br/>
-            Population distribution relatively stable. Standard census procedures should be sufficient.
-        </div>
-        """), unsafe_allow_html=True)
-
-# Recommendations
-st.markdown("---")
-st.markdown("## ✅ Recommended Actions")
-
-col1, col2 = st.columns(2)
+# Calculate high-level metrics from policy_df
+high_priority = policy_df.filter(pl.col("priority") == "High").height
+action_types = policy_df.group_by("primary_action").count().sort("count", descending=True).head(1).item(0, "primary_action")
 
 with col1:
-    st.markdown(styles.clean_html("""
-    <div class="glass-card">
-        <h4 style="color: #991B1B; margin-top: 0;">⚡ Immediate Actions</h4>
-        <ul style="color: #334155; line-height: 1.8;">
-            <li>Review electoral rolls in high-pressure districts</li>
-            <li>Assess infrastructure capacity in high-inflow areas</li>
-            <li>Investigate anomalous patterns for data quality issues</li>
-            <li>Cross-reference findings with local administrators</li>
-        </ul>
-    </div>
-    """), unsafe_allow_html=True)
+    st.markdown(styles.render_metric_card(
+        "Total Intelligence Reports",
+        str(total_insights),
+        "Geographic Units Analyzed",
+        "neutral"
+    ), unsafe_allow_html=True)
 
 with col2:
-    st.markdown(styles.clean_html("""
-    <div class="glass-card">
-        <h4 style="color: #9A3412; margin-top: 0;">📅 Medium-Term Actions</h4>
-        <ul style="color: #334155; line-height: 1.8;">
-            <li>Update population projections for high-MVI regions</li>
-            <li>Coordinate with state governments on urban expansion</li>
-            <li>Plan census enumeration resources accordingly</li>
-            <li>Monitor elevated zones for emerging trends</li>
-        </ul>
-    </div>
-    """), unsafe_allow_html=True)
+    st.markdown(styles.render_metric_card(
+        "High Priority Actions",
+        str(high_priority),
+        "Requires Immediate Review",
+        "high" if high_priority > 0 else "good"
+    ), unsafe_allow_html=True)
 
-# Data Quality Note
-st.markdown("---")
-st.markdown(styles.clean_html("""
-<div class="alert-card-info">
-    <strong>📌 Data Quality Note</strong><br/>
-    This analysis is based on aggregated, anonymized Aadhaar update data. 
-    All insights are directional indicators and should be validated with ground-truth verification 
-    before policy implementation. Use confidence levels to prioritize investigations.
-</div>
-"""), unsafe_allow_html=True)
+with col3:
+    st.markdown(styles.render_metric_card(
+        "Dominant Action Type",
+        action_types.replace("_", " ").title(),
+        "Most Common Recommendation",
+        "info"
+    ), unsafe_allow_html=True)
 
 st.markdown("---")
-st.caption("💡 Tip: Share these insights with relevant departments. Each policy domain requires coordination across multiple government levels.")
+
+# --- INTERACTIVE INSIGHTS EXPLORER ---
+
+st.markdown("## 🧠 Explainable Insights Explorer")
+
+# Filter controls
+col1, col2 = st.columns([1, 3])
+
+with col1:
+    st.markdown("### 🔍 Filters")
+    
+    # Check if state column exists, otherwise skip state filter
+    if "state" in policy_df.columns:
+        filter_state = st.selectbox("Filter by State", ["All"] + sorted(policy_df["state"].unique().to_list()))
+    else:
+        filter_state = "All"
+        st.info("State-level filtering not available (geo_key based data)")
+    
+    filter_action = st.selectbox("Filter by Action Type", ["All"] + sorted(policy_df["primary_action"].unique().to_list()))
+
+with col2:
+    search_query = st.text_input("Search Districts", placeholder="Enter district name...")
+
+# Filter logic
+filtered_insights = insights_df
+if filter_state != "All":
+    # Need to join state info back to insights_df or filter via geo_key if it implies state
+    relevant_keys = policy_df.filter(pl.col("state") == filter_state)["geo_key"].to_list()
+    filtered_insights = filtered_insights.filter(pl.col("geo_key").is_in(relevant_keys))
+
+if search_query:
+    filtered_insights = filtered_insights.filter(pl.col("geo_key").str.to_lowercase().str.contains(search_query.lower()))
+
+# Display Insights
+for row in filtered_insights.head(10).to_dicts():
+    geo_key = row['geo_key']
+    summary = row['insight_summary']
+    findings = row['key_findings'].split("; ")
+    action = row['recommended_action']
+    confidence = row['confidence_statement']
+    
+    # Determine card color based on action/summary keywords
+    card_type = "neutral"
+    if "High" in confidence or "Strong" in summary:
+        card_type = "high"
+    
+    with st.container():
+        st.markdown(f"""
+        <div style="background: white; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                <h3 style="margin: 0; color: #1e293b; font-size: 1.1rem;">📍 {geo_key}</h3>
+                <span style="background: #f1f5f9; padding: 0.2rem 0.6rem; border-radius: 1rem; font-size: 0.75rem; color: #475569;">
+                    {confidence.split('.')[0]}
+                </span>
+            </div>
+            <p style="color: #334155; font-size: 0.95rem; line-height: 1.6; margin-bottom: 1rem;">
+                {summary}
+            </p>
+            <div style="background: #f8fafc; padding: 1rem; border-radius: 0.4rem; margin-bottom: 1rem;">
+                <strong style="color: #475569; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">KEY FINDINGS</strong>
+                <ul style="margin: 0; padding-left: 1.2rem; color: #334155; font-size: 0.9rem;">
+                    {''.join([f'<li style="margin-bottom: 0.2rem;">{f}</li>' for f in findings])}
+                </ul>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                <span style="font-size: 1.2rem;">🚀</span>
+                <div>
+                    <strong style="display: block; font-size: 0.8rem; color: #64748b;">RECOMMENDED ACTION</strong>
+                    <span style="color: #0f172a; font-weight: 500;">{action}</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+if len(filtered_insights) == 0:
+    st.info(f"No insights found matching your criteria.")
+elif len(filtered_insights) > 10:
+    st.caption(f"Showing top 10 of {len(filtered_insights)} matching records.")
+
+st.markdown("---")
+st.markdown("### 📋 Detailed Policy Recommendations Table")
+
+# Policy Table
+display_cols = ["state", "district", "priority", "action_type", "primary_action", "reasoning"]
+st.dataframe(
+    policy_df.select([c for c in display_cols if c in policy_df.columns]),
+    use_container_width=True,
+    hide_index=True
+)

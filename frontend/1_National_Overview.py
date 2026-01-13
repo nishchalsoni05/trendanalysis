@@ -1,6 +1,6 @@
 """
-Project Aadhaar Sanket - National Overview Dashboard
-Professional Light Glassmorphic Design
+Project Aadhaar Sanket - Dashboard (National Overview)
+Comprehensive analytics and monitoring interface
 """
 import streamlit as st
 from pathlib import Path
@@ -15,14 +15,17 @@ st.set_page_config(
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# Import centralized styling system
 import frontend.styles as styles
 import frontend.drill_down as drill_down
 
+# Apply global CSS
 st.markdown(styles.get_global_css(), unsafe_allow_html=True)
+# Initialize drill-down
 drill_down.init_navigation()
 
+# Render sidebar
 def render_sidebar():
-    """Render sidebar with trust panel."""
     with st.sidebar:
         try:
             from src.engines.metadata_tracker import MetadataTracker
@@ -36,6 +39,27 @@ def render_sidebar():
             trust_metrics = {"last_updated": "Pending Data", "source": "UIDAI Official Data"}
         
         st.markdown(styles.render_trust_panel(**trust_metrics), unsafe_allow_html=True)
+
+render_sidebar()
+
+# Check drill-down state
+if st.session_state.get("drill_down_active", False):
+    drill_down.render_evidence_page(
+        st.session_state.drill_down_metric,
+        st.session_state.drill_down_params
+    )
+    st.stop()
+
+# Render header
+st.markdown(
+    styles.render_header(
+        "National Dashboard",
+        "Real-time migration intelligence and demographic analytics"
+    ),
+    unsafe_allow_html=True
+)
+
+
 
 def main():
     """Main dashboard entry point."""
@@ -60,7 +84,7 @@ def main():
         )
         return
     
-    render_sidebar()
+
     
     if not data_available:
         st.markdown(styles.render_header("Aadhaar Sanket", "National Demographic Overview"), unsafe_allow_html=True)

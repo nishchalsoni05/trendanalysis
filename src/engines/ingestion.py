@@ -298,6 +298,8 @@ def standardize_date_column(df: pl.DataFrame) -> pl.DataFrame:
         ("%d-%m-%Y", "DD-MM-YYYY (UIDAI standard)"),
         ("%Y-%m-%d", "YYYY-MM-DD (ISO standard)"),
         ("%d/%m/%Y", "DD/MM/YYYY (alternate)"),
+        ("%Y-%m-%d %H:%M:%S", "YYYY-MM-DD HH:MM:SS (Timestamp)"),
+        ("%Y-%m-%d %H:%M:%S.%f", "YYYY-MM-DD HH:MM:SS. micros (Timestamp)"),
     ]
     
     for fmt, description in formats_to_try:
@@ -305,7 +307,7 @@ def standardize_date_column(df: pl.DataFrame) -> pl.DataFrame:
             parsed_df = df.with_columns(
                 pl.col("date").str.strptime(pl.Date, fmt, strict=True).alias("date")
             )
-            print(f"  ✓ Date parsing successful using format: {description}")
+            # print(f"  ✓ Date parsing successful using format: {description}")
             return parsed_df
         except Exception:
             continue
@@ -579,6 +581,32 @@ def get_dataset_schema(dataset_type: str) -> Dict[str, str]:
         Dictionary of column names and their expected meanings
     """
     return NORMALIZED_COLUMNS.get(dataset_type, {})
+
+
+def save_dataset(
+    df: pl.DataFrame,
+    dataset_name: str,
+    output_dir: Path = PARQUET_DIR
+) -> Path:
+    """
+    Save specific dataset to Parquet.
+    
+    Args:
+        df: DataFrame to save
+        dataset_name: Name of the dataset (e.g., 'trend_typology')
+        output_dir: Directory to save to
+        
+    Returns:
+        Path to saved file
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"{dataset_name}.parquet"
+    if hasattr(df, "write_parquet"):
+        df.write_parquet(output_path)
+    else:
+        # Fallback if it's not a polars DF (shouldn't happen with strict typing)
+        raise ValueError(f"Expected Polars DataFrame, got {type(df)}")
+    return output_path
 
 
 # =============================================================================

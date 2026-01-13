@@ -47,34 +47,100 @@ st.markdown("---")
 
 @st.cache_data(show_spinner="Running anomaly detection...")
 def load_forecast_data():
-    """Load and process forecast/anomaly data with caching."""
+    """Load pre-calculated FORECAST and ANOMALY analytics."""
     try:
         from src.engines.ingestion import load_processed_dataset
-        from src.engines.signal_separation import apply_signal_weights
-        from src.engines.mvi import calculate_mvi, calculate_population_base
-        from src.engines.spatial import add_zone_classification
-        from src.engines.anomaly import detect_mvi_anomalies, generate_anomaly_report, generate_alerts
+        from src.engines.anomaly import generate_anomaly_report, generate_alerts
         import polars as pl
         
-        demographic_df = load_processed_dataset("demographic")
-        enrolment_df = load_processed_dataset("enrolment")
+        try:
+            anomaly_df = load_processed_dataset("anomalies")
+        except FileNotFoundError:
+            # Fallback: Calculate on the fly if file missing
+            try:
+                from src.engines.ingestion import load_processed_dataset
+                from src.engines.anomaly import detect_mvi_anomalies
+                # Load input data which has MVI (typology)
+                mvi_df = load_processed_dataset("trend_typology")
+                
+                # Ensure column naming consistency
+                if "mean_mvi" in mvi_df.columns:
+                    mvi_df = mvi_df.rename({"mean_mvi": "mvi"})
+                    
+                # Fix: Extract state/district from geo_key if missing
+                # Check 1: Is geo_key just District_State?
+                if "state" not in mvi_df.columns and "geo_key" in mvi_df.columns:
+                    sample_key = mvi_df.select("geo_key").head(1).item()
+                    if "_" in str(sample_key):
+                         try:
+                            mvi_df = mvi_df.with_columns([
+                                pl.col("geo_key").str.split("_").list.get(1).alias("state"),
+                                pl.col("geo_key").str.split("_").list.get(0).alias("district")
+                            ])
+                         except:
+                            pass
+                    else:
+                        # Case 2: geo_key IS the district name (as seen in check results)
+                        mvi_df = mvi_df.with_columns(pl.col("geo_key").alias("district"))
+                        # Try to get state mapping from demographic data if available
+                        try:
+                            demo_df = load_processed_dataset("demographic")
+                            # Create district->state mapping
+                            state_map = demo_df.select(["district", "state"]).unique()
+                            mvi_df = mvi_df.join(state_map, on="district", how="left")
+                        except:
+                            # If demo data missing, just fill state as Unknown
+                            mvi_df = mvi_df.with_columns(pl.lit("Unknown").alias("state"))
+
+                anomaly_df = detect_mvi_anomalies(mvi_df)
+            except Exception as e2:
+                # print(f"Fallback failed: {e2}")
+                anomaly_df = None
+
+        acceleration_df = load_processed_dataset("acceleration")
         
-        demographic_df = apply_signal_weights(demographic_df, "demographic")
-        population_df = calculate_population_base(enrolment_df, "district")
-        mvi_df = calculate_mvi(demographic_df, population_df, "district")
-        mvi_df = add_zone_classification(mvi_df)
+        # Generate reports from the loaded/calculated data
+        if anomaly_df is not None:
+            # Ensure anomaly_df has state/district for alerts if possible
+            if "state" not in anomaly_df.columns and "geo_key" in anomaly_df.columns:
+                 sample_key = anomaly_df.select("geo_key").head(1).item()
+                 if "_" in str(sample_key):
+                     try:
+                        anomaly_df = anomaly_df.with_columns([
+                            pl.col("geo_key").str.split("_").list.get(1).alias("state"),
+                            pl.col("geo_key").str.split("_").list.get(0).alias("district")
+                        ])
+                     except:
+                        pass
+                 else:
+                     # geo_key is district
+                     anomaly_df = anomaly_df.with_columns(pl.col("geo_key").alias("district"))
+                     try:
+                        # Try to rejoin state from mvi_df if we calculated it there
+                        if "mvi_df" in locals() and "state" in mvi_df.columns:
+                             state_map = mvi_df.select(["district", "state"]).unique()
+                             anomaly_df = anomaly_df.join(state_map, on="district", how="left")
+                        else:
+                             # Try loading demo data again if needed (less efficient but robust)
+                             from src.engines.ingestion import load_processed_dataset
+                             demo_df = load_processed_dataset("demographic")
+                             state_map = demo_df.select(["district", "state"]).unique()
+                             anomaly_df = anomaly_df.join(state_map, on="district", how="left")
+                     except:
+                        anomaly_df = anomaly_df.with_columns(pl.lit("Unknown").alias("state"))
+
+            anomaly_report = generate_anomaly_report(anomaly_df)
+            alerts = generate_alerts(anomaly_df)
+        else:
+            anomaly_report, alerts = None, None
         
-        # Run anomaly detection
-        anomaly_df = detect_mvi_anomalies(mvi_df)
-        anomaly_report = generate_anomaly_report(anomaly_df)
-        alerts = generate_alerts(anomaly_df)
-        
-        return anomaly_df, anomaly_report, alerts, True
+        return anomaly_df, acceleration_df, anomaly_report, alerts, True
     except Exception as e:
-        return None, None, None, False
+        # Fallback for acceleration if not found
+        return None, None, None, None, False
 
 # Load data
-anomaly_df, anomaly_report, alerts, data_available = load_forecast_data()
+anomaly_df, acceleration_df, anomaly_report, alerts, data_available = load_forecast_data()
 
 if not data_available:
     st.markdown(styles.clean_html("""
@@ -208,13 +274,22 @@ with tab2:
     
     if len(anomalies_only) > 0:
         # Limit to top 15 for performance
-        display_df = anomalies_only.select([
-            "state", "district", "mvi", "z_score", "anomaly_type", "severity"
-        ]).head(15).to_pandas()
+        cols_to_show = ["state", "district", "mvi", "z_score", "anomaly_type", "severity"]
+        available_cols = [c for c in cols_to_show if c in anomalies_only.columns]
         
-        display_df.columns = ["State", "District", "MVI", "Z-Score", "Type", "Severity"]
-        display_df["Z-Score"] = display_df["Z-Score"].round(2)
-        display_df["MVI"] = display_df["MVI"].round(2)
+        # Fallback to geo_key if district missing
+        if "district" not in available_cols and "geo_key" in anomalies_only.columns:
+            available_cols = ["geo_key"] + [c for c in available_cols if c not in ["state", "district"]]
+            
+        display_df = anomalies_only.select(available_cols).head(15).to_pandas()
+        
+        # Format columns nicely
+        display_df.columns = [c.replace("_", " ").title() for c in display_df.columns]
+        
+        if "Z Score" in display_df.columns:
+            display_df["Z Score"] = display_df["Z Score"].round(2)
+        if "Mvi" in display_df.columns:
+            display_df["Mvi"] = display_df["Mvi"].round(2)
         
         st.dataframe(
             display_df,

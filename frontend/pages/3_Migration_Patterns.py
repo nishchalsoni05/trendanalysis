@@ -50,27 +50,31 @@ st.markdown("---")
 # Cache data loading for performance
 @st.cache_data(show_spinner="Loading migration data...")
 def load_migration_data():
-    """Load and process migration data with caching."""
+    """Load pre-calculated migration analytics."""
     try:
         from src.engines.ingestion import load_processed_dataset
-        from src.engines.signal_separation import apply_signal_weights
-        from src.engines.mvi import calculate_mvi, calculate_population_base
-        from src.engines.spatial import add_zone_classification
+        import polars as pl
         
-        demographic_df = load_processed_dataset("demographic")
-        enrolment_df = load_processed_dataset("enrolment")
+        # Load verified backend outputs
+        # Primary: Trend Typology (contains MVI, zone_type, confidence)
+        typology_df = load_processed_dataset("trend_typology")
         
-        demographic_df = apply_signal_weights(demographic_df, "demographic")
-        population_df = calculate_population_base(enrolment_df, "district")
-        mvi_df = calculate_mvi(demographic_df, population_df, "district")
-        mvi_df = add_zone_classification(mvi_df)
-        
-        return mvi_df, True
+        # Secondary: Seasonality (for improved filtering)
+        try:
+            seasonality_df = load_processed_dataset("seasonality")
+            # Join seasonality info if needed, or just return both
+        except:
+            seasonality_df = None
+            
+        if "mean_mvi" in typology_df.columns:
+            typology_df = typology_df.rename({"mean_mvi": "mvi"})
+            
+        return typology_df, seasonality_df, True
     except Exception as e:
-        return None, False
+        return None, None, False
 
 # Load data
-mvi_df, data_available = load_migration_data()
+mvi_df, seasonality_df, data_available = load_migration_data()
 
 if not data_available:
     st.markdown(styles.clean_html("""
@@ -95,14 +99,18 @@ st.markdown(styles.render_insight_card(
 st.markdown("---")
 
 # State selection
-states = sorted(mvi_df.select("state").unique().to_series().to_list())
+if "state" in mvi_df.columns:
+    states = sorted(mvi_df.select("state").unique().to_series().to_list())
+else:
+    states = []
 
 col1, col2 = st.columns([1, 3])
 
 with col1:
     st.markdown("### 🔍 Filters")
     
-    selected_state = st.selectbox("Select State", ["All States"] + states)
+    state_list = states if states else ["All"]
+    selected_state = st.selectbox("Select State", ["All States"] + (state_list if "All" not in state_list else []))
     
     mvi_range = st.slider(
         "MVI Range",
@@ -111,26 +119,45 @@ with col1:
         value=(0.0, float(mvi_df.select("mvi").max().item()))
     )
     
+    # Get actual trend types from data
+    if "trend_type" in mvi_df.columns:
+        available_trend_types = sorted(mvi_df.select("trend_type").unique().to_series().to_list())
+    else:
+        available_trend_types = []
+    
     zone_filter = st.multiselect(
-        "Zone Type",
-        ["high_inflow", "moderate_inflow", "stable", "decline"],
-        default=["high_inflow", "moderate_inflow", "stable"]
+        "Trend Type",
+        available_trend_types if available_trend_types else ["structural", "seasonal", "cyclical", "volatile"],
+        default=available_trend_types[:2] if len(available_trend_types) >= 2 else available_trend_types
     )
 
 with col2:
     # Apply filters
     filtered_df = mvi_df
     
-    if selected_state != "All States":
-        filtered_df = filtered_df.filter(pl.col("state") == selected_state)
+    # Ensure state/district exist (if only geo_key is present)
+    if "state" not in filtered_df.columns and "geo_key" in filtered_df.columns:
+        # Assuming geo_key is "District_State" or similar? 
+        # Actually pipeline usually works with specific grains. 
+        # If needed, we can extract or just rely on what's there.
+        # Let's try to extract if possible, or skip state filter if missing.
+        pass
+
+    if "state" in filtered_df.columns:
+        if selected_state != "All States":
+            filtered_df = filtered_df.filter(pl.col("state") == selected_state)
     
-    filtered_df = filtered_df.filter(
-        (pl.col("mvi") >= mvi_range[0]) & 
-        (pl.col("mvi") <= mvi_range[1])
-    )
+    if "mvi" in filtered_df.columns:
+        filtered_df = filtered_df.filter(
+            (pl.col("mvi") >= mvi_range[0]) & 
+            (pl.col("mvi") <= mvi_range[1])
+        )
     
-    if zone_filter:
-        filtered_df = filtered_df.filter(pl.col("zone_type").is_in(zone_filter))
+    # Map 'trend_type' to zone filter if 'zone_type' is missing
+    type_col = "zone_type" if "zone_type" in filtered_df.columns else "trend_type"
+    
+    if zone_filter and type_col in filtered_df.columns:
+        filtered_df = filtered_df.filter(pl.col(type_col).is_in(zone_filter))
     
     st.markdown(f"**Showing {len(filtered_df)} districts**")
     
@@ -140,13 +167,20 @@ with col2:
     with tab1:
         # Display as table with color coding - PAGINATED to 30 rows
         if len(filtered_df) > 0:
-            display_df = filtered_df.select([
-                "state", "district", "mvi", "mvi_band", "zone_type", "confidence"
-            ]).sort("mvi", descending=True).head(30).to_pandas()
+            # Select available columns dynamically
+            cols_to_show = ["state", "district", "mvi", "trend_type", "confidence"]
+            available_cols = [c for c in cols_to_show if c in filtered_df.columns]
+            
+            # If state/district missing, show geo_key
+            if "district" not in available_cols:
+                available_cols = ["geo_key"] + [c for c in available_cols if c not in ["state", "district"]]
+            
+            display_df = filtered_df.select(available_cols).sort("mvi", descending=True).head(30).to_pandas()
             
             # Format visual dataframe
-            display_df.columns = ["State", "District", "MVI", "Classification", "Zone Type", "Confidence"]
-            display_df["MVI"] = display_df["MVI"].round(2)
+            display_df.columns = [c.replace("_", " ").title() for c in display_df.columns]
+            if "Mvi" in display_df.columns:
+                display_df["Mvi"] = display_df["Mvi"].round(2)
             
             st.dataframe(
                 display_df, 
@@ -178,10 +212,12 @@ with col2:
             
             with col_b:
                 max_mvi = filtered_df.select("mvi").max().item()
-                max_district = filtered_df.filter(pl.col("mvi") == max_mvi).select("district").item()
+                # Use geo_key if district not available
+                geo_col = "district" if "district" in filtered_df.columns else "geo_key"
+                max_location = filtered_df.filter(pl.col("mvi") == max_mvi).select(geo_col).item()
                 drill_down.render_metric_button(
                     value=f"{max_mvi:.2f}",
-                    label=f"Max MVI ({max_district})",
+                    label=f"Max MVI ({max_location})",
                     metric_id="max_mvi_filtered",
                     trend="High Pressure",
                     trend_direction="down"
@@ -198,14 +234,17 @@ with col2:
                 )
             
             # Zone distribution
-            st.markdown("---")
-            st.markdown("### Zone Distribution")
-            zone_counts = filtered_df.group_by("zone_type").len().to_pandas()
+            # Zone type distribution
+            st.markdown("### Zone Distribution by Type")
+            
+            # Use trend_type column (zone_type doesn't exist)
+            type_col = "trend_type" if "trend_type" in filtered_df.columns else "zone_type"
+            zone_counts = filtered_df.group_by(type_col).len().to_pandas()
             
             cols = st.columns(len(zone_counts)) if len(zone_counts) > 0 else [st.container()]
             
             for idx, row in zone_counts.iterrows():
-                zone = row["zone_type"]
+                zone = row[type_col]
                 count = row["len"]
                 pct = (count / len(filtered_df)) * 100
                 
@@ -220,7 +259,7 @@ with col2:
                 
                 with cols[idx % 4]:
                     st.markdown(styles.clean_html(f"""
-                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 8px; border: 1px solid #e2e8f0; color: #000000;">
                         {badge}<br>
                         <div style="font-size: 1.5rem; font-weight: 700; color: #0f172a; margin-top: 0.5rem;">{count}</div>
                         <div style="color: #64748b; font-size: 0.8rem;">{pct:.1f}%</div>

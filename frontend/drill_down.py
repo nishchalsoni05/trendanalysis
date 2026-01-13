@@ -42,7 +42,7 @@ def render_metric_button(value: str, label: str, metric_id: str, params: Dict = 
     
     button_key = f"metric_btn_{metric_id}"
     
-    col1, col2 = st.columns([4, 1])
+    col1, col2 = st.columns([3, 2])
     
     with col1:
         st.markdown(
@@ -51,7 +51,7 @@ def render_metric_button(value: str, label: str, metric_id: str, params: Dict = 
         )
     
     with col2:
-        if st.button("🔍 Details", key=button_key, help=f"View details for {label}"):
+        if st.button("🔍 Details", key=button_key, use_container_width=True):
             navigate_to_metric(metric_id, params)
 
 

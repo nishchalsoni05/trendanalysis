@@ -1,20 +1,18 @@
 {
   "dataset_type": "enrolment",
-  "timestamp": "2026-01-12T14:40:54.670532",
-  "total_rows": 1006029,
+  "timestamp": "2026-01-13T17:06:15.734982",
+  "total_rows": 2012058,
   "total_columns": 9,
-  "overall_score": 58.3,
+  "overall_score": 91.7,
   "checks": [
     {
       "rule_id": "Q1",
       "rule_name": "Null Value Check (Critical Columns)",
-      "passed": false,
-      "message": "Found 1006029 null values (25.00%)",
-      "severity": "error",
+      "passed": true,
+      "message": "No null values in critical columns",
+      "severity": "info",
       "details": {
-        "null_counts": {
-          "date": 1006029
-        },
+        "null_counts": {},
         "threshold_percent": 5.0
       }
     },
@@ -31,10 +29,15 @@
     {
       "rule_id": "Q3",
       "rule_name": "Date Range Validation",
-      "passed": false,
-      "message": "Error parsing dates: '>=' not supported between instances of 'NoneType' and 'datetime.date'",
-      "severity": "error",
-      "details": null
+      "passed": true,
+      "message": "Data spans 2025-03-02 to 2025-12-31",
+      "severity": "info",
+      "details": {
+        "min_date": "2025-03-02",
+        "max_date": "2025-12-31",
+        "expected_start": "2025-01-01",
+        "expected_end": "2025-12-31"
+      }
     },
     {
       "rule_id": "Q4",
@@ -56,15 +59,15 @@
       "severity": "warning",
       "details": {
         "age_0_5_count": {
-          "zero_count": 115243,
+          "zero_count": 230486,
           "zero_percent": 11.46
         },
         "age_5_17_count": {
-          "zero_count": 556737,
+          "zero_count": 1113474,
           "zero_percent": 55.34
         },
         "age_18_plus_count": {
-          "zero_count": 965804,
+          "zero_count": 1931608,
           "zero_percent": 96.0
         }
       }
@@ -73,15 +76,18 @@
       "rule_id": "Q6",
       "rule_name": "Temporal Continuity Check",
       "passed": true,
-      "message": "Insufficient dates for continuity check",
+      "message": "Data covers 92 unique dates",
       "severity": "info",
-      "details": null
+      "details": {
+        "unique_dates": 92,
+        "date_range_days": 304
+      }
     }
   ],
   "summary": {
-    "passed": 3,
-    "failed": 3,
+    "passed": 5,
+    "failed": 1,
     "warnings": 1,
-    "errors": 2
+    "errors": 0
   }
 }
