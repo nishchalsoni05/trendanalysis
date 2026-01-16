@@ -100,25 +100,35 @@ action_types = policy_df.group_by("primary_action").count().sort("count", descen
 
 with col1:
     st.markdown(styles.render_metric_card(
-        "Total Intelligence Reports",
         str(total_insights),
+        "Total Intelligence Reports",
         "Geographic Units Analyzed",
         "neutral"
     ), unsafe_allow_html=True)
 
 with col2:
     st.markdown(styles.render_metric_card(
-        "High Priority Actions",
         str(high_priority),
+        "High Priority Actions",
         "Requires Immediate Review",
         "high" if high_priority > 0 else "good"
     ), unsafe_allow_html=True)
 
 with col3:
+    # Abbreviate long action types for display
+    action_display = action_types.replace("_", " ").title()
+    if len(action_display) > 12:
+        # Use abbreviated version
+        words = action_display.split()
+        if len(words) >= 2:
+            action_display = words[0][:3].upper() + ". " + words[-1][:6].title()
+        else:
+            action_display = action_display[:12] + "..."
+    
     st.markdown(styles.render_metric_card(
-        "Dominant Action Type",
-        action_types.replace("_", " ").title(),
-        "Most Common Recommendation",
+        action_display,
+        "Dominant Action",
+        "Top Recommendation",
         "info"
     ), unsafe_allow_html=True)
 
@@ -144,7 +154,14 @@ with col1:
     filter_action = st.selectbox("Filter by Action Type", ["All"] + sorted(policy_df["primary_action"].unique().to_list()))
 
 with col2:
-    search_query = st.text_input("Search Districts", placeholder="Enter district name...")
+    # Get all unique geo keys available for search
+    all_districts = sorted(insights_df["geo_key"].unique().to_list())
+    search_query = st.selectbox(
+        "Search Districts",
+        options=["All"] + all_districts,
+        index=0,
+        placeholder="Select or type district name..."
+    )
 
 # Filter logic
 filtered_insights = insights_df
@@ -153,8 +170,8 @@ if filter_state != "All":
     relevant_keys = policy_df.filter(pl.col("state") == filter_state)["geo_key"].to_list()
     filtered_insights = filtered_insights.filter(pl.col("geo_key").is_in(relevant_keys))
 
-if search_query:
-    filtered_insights = filtered_insights.filter(pl.col("geo_key").str.to_lowercase().str.contains(search_query.lower()))
+if search_query != "All":
+    filtered_insights = filtered_insights.filter(pl.col("geo_key") == search_query)
 
 # Display Insights
 for row in filtered_insights.head(10).to_dicts():
@@ -205,10 +222,169 @@ elif len(filtered_insights) > 10:
 st.markdown("---")
 st.markdown("### 📋 Detailed Policy Recommendations Table")
 
-# Policy Table
+# Add filter controls for the table
+table_col1, table_col2, table_col3, table_col4 = st.columns(4)
+
+with table_col1:
+    priority_filter = st.selectbox(
+        "🎯 Priority Level",
+        ["All"] + sorted(policy_df["priority"].unique().to_list()) if "priority" in policy_df.columns else ["All"],
+        key="priority_filter"
+    )
+
+with table_col2:
+    if "action_type" in policy_df.columns:
+        action_filter = st.selectbox(
+            "📌 Action Type",
+            ["All"] + sorted(policy_df["action_type"].unique().to_list()),
+            key="action_type_filter"
+        )
+    else:
+        action_filter = "All"
+
+with table_col3:
+    if "primary_action" in policy_df.columns:
+        primary_filter = st.selectbox(
+            "🚀 Primary Action",
+            ["All"] + sorted(policy_df["primary_action"].unique().to_list()),
+            key="primary_action_filter"
+        )
+    else:
+        primary_filter = "All"
+
+with table_col4:
+    sort_by = st.selectbox(
+        "📊 Sort By",
+        ["Priority (High First)", "Priority (Low First)", "State", "District"],
+        key="sort_by"
+    )
+
+# Apply filters
+filtered_policy = policy_df
+
+if priority_filter != "All" and "priority" in filtered_policy.columns:
+    filtered_policy = filtered_policy.filter(pl.col("priority") == priority_filter)
+    
+if action_filter != "All" and "action_type" in filtered_policy.columns:
+    filtered_policy = filtered_policy.filter(pl.col("action_type") == action_filter)
+    
+if primary_filter != "All" and "primary_action" in filtered_policy.columns:
+    filtered_policy = filtered_policy.filter(pl.col("primary_action") == primary_filter)
+
+# Apply sorting
+if "Priority (High First)" in sort_by and "priority" in filtered_policy.columns:
+    priority_order = {"High": 0, "Medium": 1, "Low": 2}
+    filtered_policy = filtered_policy.with_columns(
+        pl.col("priority").replace(priority_order).alias("sort_key")
+    ).sort("sort_key").drop("sort_key")
+elif "Priority (Low First)" in sort_by and "priority" in filtered_policy.columns:
+    priority_order = {"Low": 0, "Medium": 1, "High": 2}
+    filtered_policy = filtered_policy.with_columns(
+        pl.col("priority").replace(priority_order).alias("sort_key")
+    ).sort("sort_key").drop("sort_key")
+elif "State" in sort_by and "state" in filtered_policy.columns:
+    filtered_policy = filtered_policy.sort("state")
+elif "District" in sort_by and "district" in filtered_policy.columns:
+    filtered_policy = filtered_policy.sort("district")
+
+# Summary stats for filtered data
+st.markdown("---")
+stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+
+with stat_col1:
+    total_recs = len(filtered_policy)
+    st.metric("Total Recommendations", total_recs)
+
+with stat_col2:
+    high_count = len(filtered_policy.filter(pl.col("priority") == "High")) if "priority" in filtered_policy.columns else 0
+    st.metric("High Priority", high_count, delta="Urgent" if high_count > 0 else None, delta_color="inverse")
+
+with stat_col3:
+    medium_count = len(filtered_policy.filter(pl.col("priority") == "Medium")) if "priority" in filtered_policy.columns else 0
+    st.metric("Medium Priority", medium_count)
+
+with stat_col4:
+    low_count = len(filtered_policy.filter(pl.col("priority") == "Low")) if "priority" in filtered_policy.columns else 0
+    st.metric("Low Priority", low_count, delta="Normal" if low_count > 0 else None, delta_color="off")
+
+# Display the filtered table
+st.markdown("---")
 display_cols = ["state", "district", "priority", "action_type", "primary_action", "reasoning"]
-st.dataframe(
-    policy_df.select([c for c in display_cols if c in policy_df.columns]),
-    use_container_width=True,
-    hide_index=True
-)
+available_cols = [c for c in display_cols if c in filtered_policy.columns]
+
+if len(filtered_policy) > 0:
+    display_df = filtered_policy.select(available_cols).to_pandas()
+    
+    # Rename columns for better display
+    column_renames = {
+        "state": "🗺️ State",
+        "district": "📍 District",
+        "priority": "🎯 Priority",
+        "action_type": "📌 Type",
+        "primary_action": "🚀 Action",
+        "reasoning": "📝 Reasoning"
+    }
+    display_df.rename(columns={k: v for k, v in column_renames.items() if k in display_df.columns}, inplace=True)
+    
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        height=400
+    )
+    
+    # Export button
+    export_col1, export_col2, _ = st.columns([1, 1, 2])
+    with export_col1:
+        csv_data = filtered_policy.select(available_cols).to_pandas().to_csv(index=False)
+        st.download_button(
+            label="📥 Download as CSV",
+            data=csv_data,
+            file_name="policy_recommendations.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    
+    with export_col2:
+        if len(filtered_policy) > 0:
+            st.caption(f"📊 Showing {len(filtered_policy)} recommendations")
+else:
+    st.info("No recommendations match your filter criteria. Try adjusting the filters.")
+
+# Priority Overview Chart
+st.markdown("---")
+st.markdown("#### 📊 Priority Distribution")
+
+if "priority" in policy_df.columns:
+    priority_counts = policy_df.group_by("priority").len().to_pandas()
+    
+    import plotly.express as px
+    
+    fig = px.pie(
+        priority_counts, 
+        values='len', 
+        names='priority',
+        color='priority',
+        color_discrete_map={
+            'High': '#dc2626',
+            'Medium': '#f59e0b', 
+            'Low': '#16a34a'
+        },
+        hole=0.4
+    )
+    
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#1f2937'),
+        legend=dict(orientation='h', yanchor='bottom', y=-0.2, xanchor='center', x=0.5)
+    )
+    
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        textfont=dict(color='white'),
+        hoverlabel=dict(bgcolor='white', font=dict(color='black'))
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)

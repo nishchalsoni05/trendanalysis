@@ -23,6 +23,81 @@ import frontend.drill_down as drill_down
 # Apply global CSS
 st.markdown(styles.get_global_css(), unsafe_allow_html=True)
 
+# Fix expander styling for this page - white background, black text
+st.markdown("""
+<style>
+    /* RADIO BUTTON LABELS - FORCE BLACK */
+    .stRadio label,
+    .stRadio span,
+    [data-testid="stRadioButton"] label,
+    [data-testid="stRadioButton"] span,
+    div[role="radiogroup"] label,
+    div[role="radiogroup"] span {
+        color: #1f2937 !important;
+    }
+    
+    /* Expander container - FORCE WHITE */
+    [data-testid="stExpander"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 12px !important;
+    }
+    
+    [data-testid="stExpander"] > div {
+        background-color: #FFFFFF !important;
+    }
+    
+    /* Expander header bar - the click area - FORCE WHITE */
+    [data-testid="stExpander"] > details {
+        background-color: #FFFFFF !important;
+    }
+    
+    [data-testid="stExpander"] > details > summary {
+        background-color: #FFFFFF !important;
+        color: #1f2937 !important;
+    }
+    
+    [data-testid="stExpander"] summary {
+        background-color: #FFFFFF !important;
+        color: #1f2937 !important;
+    }
+    
+    [data-testid="stExpander"] summary > span {
+        color: #1f2937 !important;
+    }
+    
+    /* Target the details element directly */
+    details[data-testid="stExpander"] {
+        background-color: #FFFFFF !important;
+    }
+    
+    details summary {
+        background-color: #FFFFFF !important;
+        color: #1f2937 !important;
+    }
+    
+    /* Expander content area */
+    .streamlit-expanderContent {
+        background-color: #FFFFFF !important;
+        color: #1f2937 !important;
+    }
+    
+    /* All text inside expander ONLY */
+    .streamlit-expanderContent p,
+    .streamlit-expanderContent span,
+    .streamlit-expanderContent li,
+    .streamlit-expanderContent strong {
+        color: #1f2937 !important;
+    }
+    
+    /* Expander chevron icon */
+    [data-testid="stExpander"] svg {
+        color: #1f2937 !important;
+        fill: #1f2937 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 if "loader_shown_P5" not in st.session_state:
     from frontend.components.loader import render_loader
     render_loader([
@@ -344,5 +419,388 @@ else:
     </div>
     """), unsafe_allow_html=True)
 
+# NEW SECTION: Export Alerts
+st.markdown("---")
+st.markdown("### 📤 Export Alerts")
+
+export_col1, export_col2 = st.columns(2)
+
+with export_col1:
+    # Export anomalies to CSV
+    if anomaly_df is not None and len(anomaly_df) > 0:
+        anomalies_for_export = anomaly_df.filter(pl.col("is_anomaly") == True)
+        if len(anomalies_for_export) > 0:
+            csv_data = anomalies_for_export.write_csv()
+            st.download_button(
+                label="📄 Download Anomalies as CSV",
+                data=csv_data,
+                file_name="anomaly_alerts.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        else:
+            st.info("No anomalies to export")
+    else:
+        st.info("No anomaly data available")
+
+with export_col2:
+    # Quick summary download
+    from datetime import datetime
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    summary_text = f"""
+AADHAAR SANKET - ANOMALY REPORT
+Generated: {current_time}
+
+SUMMARY
+-------
+Total Units Analyzed: {anomaly_report['summary']['total_units']}
+Total Anomalies: {anomaly_report['summary']['anomaly_count']}
+Anomaly Rate: {anomaly_report['summary']['anomaly_rate']:.2f}%
+
+BY SEVERITY
+-----------
+Critical: {anomaly_report['by_severity'].get('CRITICAL', 0)}
+High: {anomaly_report['by_severity'].get('HIGH', 0)}
+Medium: {anomaly_report['by_severity'].get('MEDIUM', 0)}
+Low: {anomaly_report['by_severity'].get('LOW', 0)}
+
+RISK ASSESSMENT
+---------------
+Risk Level: {risk_level}
+Recommendation: {recommendation}
+"""
+    st.download_button(
+        label="📋 Download Summary Report",
+        data=summary_text,
+        file_name="anomaly_summary.txt",
+        mime="text/plain",
+        use_container_width=True
+    )
+
+# NEW SECTION: Interactive Risk Score Calculator
+st.markdown("---")
+st.markdown("### 🧮 Interactive Risk Score Calculator")
+st.markdown("Configure parameters and calculate risk scores for specific regions or custom scenarios.")
+
+# Use radio buttons instead of tabs to maintain state during rerun
+if "calc_mode" not in st.session_state:
+    st.session_state.calc_mode = "📊 Current Data"
+
+calc_mode = st.radio(
+    "Select Analysis Mode",
+    ["📊 Current Data", "🗺️ State-wise Analysis", "⚙️ Custom Calculator"],
+    horizontal=True,
+    key="calc_mode_radio",
+    index=["📊 Current Data", "🗺️ State-wise Analysis", "⚙️ Custom Calculator"].index(st.session_state.calc_mode)
+)
+
+# Update session state
+st.session_state.calc_mode = calc_mode
+
+st.markdown("---")
+
+if calc_mode == "📊 Current Data":
+    # Current data risk score (existing functionality)
+    calc_col1, calc_col2 = st.columns([1, 1])
+    
+    with calc_col1:
+        st.markdown("""
+        <div style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb;">
+            <h4 style="color: #1f2937; margin-top: 0;">📊 Risk Score Formula</h4>
+            <div style="color: #475569; line-height: 1.8;">
+                <p><strong>Critical Alerts</strong> × 10 = <span style="color: #dc2626;">{}</span></p>
+                <p><strong>High Alerts</strong> × 5 = <span style="color: #ea580c;">{}</span></p>
+                <p><strong>Anomaly Rate</strong> × 2 = <span style="color: #f59e0b;">{:.1f}</span></p>
+                <hr style="border-color: #e5e7eb;"/>
+                <p style="font-size: 1.25rem;"><strong>Total Risk Score</strong> = <span style="color: #000000; font-weight: 700;">{:.1f}</span></p>
+            </div>
+        </div>
+        """.format(
+            critical * 10,
+            high * 5,
+            anomaly_report['summary']['anomaly_rate'] * 2,
+            (critical * 10) + (high * 5) + (anomaly_report['summary']['anomaly_rate'] * 2)
+        ), unsafe_allow_html=True)
+    
+    with calc_col2:
+        risk_score = (critical * 10) + (high * 5) + (anomaly_report['summary']['anomaly_rate'] * 2)
+        
+        if risk_score >= 50:
+            risk_color = "#dc2626"
+            risk_label = "HIGH RISK"
+            risk_action = "Immediate investigation and intervention required"
+        elif risk_score >= 20:
+            risk_color = "#ea580c"
+            risk_label = "ELEVATED RISK"
+            risk_action = "Close monitoring and contingency planning needed"
+        else:
+            risk_color = "#16a34a"
+            risk_label = "LOW RISK"
+            risk_action = "Continue routine monitoring"
+        
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, {risk_color}20, {risk_color}10); padding: 2rem; border-radius: 12px; border-left: 4px solid {risk_color}; text-align: center;">
+            <div style="font-size: 3rem; font-weight: 800; color: {risk_color};">{risk_score:.0f}</div>
+            <div style="font-size: 1rem; font-weight: 700; color: {risk_color}; margin-top: 0.5rem;">{risk_label}</div>
+            <div style="font-size: 0.875rem; color: #475569; margin-top: 1rem;">{risk_action}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+elif calc_mode == "🗺️ State-wise Analysis":
+    # State-wise analysis
+    st.markdown("**Select a state to analyze its risk profile and view detailed problems:**")
+    
+    # Get states from anomaly data
+    if "state" in anomaly_df.columns:
+        states_list = sorted([s for s in anomaly_df.select("state").unique().to_series().to_list() 
+                              if s and str(s).strip() and not str(s).strip().isdigit()])
+        
+        if states_list:
+            selected_state = st.selectbox("🗺️ Select State", ["All States"] + states_list, key="risk_calc_state")
+            
+            if selected_state != "All States":
+                # Filter data for selected state
+                state_anomalies = anomaly_df.filter(pl.col("state") == selected_state)
+                state_critical = len(state_anomalies.filter((pl.col("is_anomaly") == True) & (pl.col("severity") == "CRITICAL")))
+                state_high = len(state_anomalies.filter((pl.col("is_anomaly") == True) & (pl.col("severity") == "HIGH")))
+                state_medium = len(state_anomalies.filter((pl.col("is_anomaly") == True) & (pl.col("severity") == "MEDIUM")))
+                state_total = len(state_anomalies)
+                state_anomaly_count = len(state_anomalies.filter(pl.col("is_anomaly") == True))
+                state_anomaly_rate = (state_anomaly_count / state_total * 100) if state_total > 0 else 0
+                state_risk_score = (state_critical * 10) + (state_high * 5) + (state_anomaly_rate * 2)
+                
+                # Get actual anomaly data for this state
+                state_anomaly_details = state_anomalies.filter(pl.col("is_anomaly") == True)
+            else:
+                state_critical = critical
+                state_high = high
+                state_medium = anomaly_report['by_severity'].get('MEDIUM', 0)
+                state_anomaly_rate = anomaly_report['summary']['anomaly_rate']
+                state_risk_score = (state_critical * 10) + (state_high * 5) + (state_anomaly_rate * 2)
+                state_anomaly_details = anomaly_df.filter(pl.col("is_anomaly") == True)
+                state_total = len(anomaly_df)
+                state_anomaly_count = len(state_anomaly_details)
+            
+            # Display state-specific metrics
+            st.markdown(f"### 📊 Risk Overview: {selected_state}")
+            state_col1, state_col2, state_col3, state_col4 = st.columns(4)
+            
+            with state_col1:
+                st.metric("Critical Alerts", state_critical, delta=None)
+            with state_col2:
+                st.metric("High Alerts", state_high, delta=None)
+            with state_col3:
+                st.metric("Anomaly Rate", f"{state_anomaly_rate:.1f}%", delta=None)
+            with state_col4:
+                if state_risk_score >= 50:
+                    st.metric("Risk Score", f"{state_risk_score:.0f}", delta="HIGH", delta_color="inverse")
+                elif state_risk_score >= 20:
+                    st.metric("Risk Score", f"{state_risk_score:.0f}", delta="ELEVATED", delta_color="inverse")
+                else:
+                    st.metric("Risk Score", f"{state_risk_score:.0f}", delta="LOW", delta_color="normal")
+            
+            st.markdown("---")
+            
+            # DETAILED PROBLEM BREAKDOWN
+            st.markdown(f"### 🚨 Detailed Problems in {selected_state}")
+            
+            if len(state_anomaly_details) > 0:
+                # Group by anomaly type
+                if "anomaly_type" in state_anomaly_details.columns:
+                    anomaly_types = state_anomaly_details.group_by("anomaly_type").len().sort("len", descending=True)
+                    
+                    st.markdown("#### Problem Types Identified:")
+                    for row in anomaly_types.iter_rows():
+                        atype, count = row[0], row[1]
+                        if atype and atype != "NORMAL":
+                            # Define problem descriptions and solutions
+                            problem_info = {
+                                "SPIKE": {
+                                    "icon": "📈",
+                                    "description": "Sudden dramatic increase in migration activity detected",
+                                    "cause": "Could indicate mass migration event, seasonal worker movement, or data entry surge",
+                                    "solution": "1. Verify data quality for entry errors\n2. Cross-reference with local events\n3. Deploy field verification teams\n4. Prepare service capacity expansion"
+                                },
+                                "SUSTAINED_HIGH": {
+                                    "icon": "🔥",
+                                    "description": "Consistently elevated migration levels over extended period",
+                                    "cause": "Indicates ongoing population inflow pressure",
+                                    "solution": "1. Increase electoral roll verification frequency\n2. Enhance service delivery capacity\n3. Plan infrastructure expansion\n4. Coordinate with source regions"
+                                },
+                                "ACCELERATION": {
+                                    "icon": "🚀",
+                                    "description": "Migration rate is increasing faster than normal",
+                                    "cause": "Early indicator of emerging pressure zone",
+                                    "solution": "1. Set up early warning monitoring\n2. Prepare contingency resources\n3. Alert district administration\n4. Begin capacity planning"
+                                },
+                                "VOLATILE": {
+                                    "icon": "⚡",
+                                    "description": "Unpredictable fluctuations in migration patterns",
+                                    "cause": "May indicate seasonal effects, data issues, or unstable population dynamics",
+                                    "solution": "1. Increase data monitoring frequency\n2. Investigate data quality\n3. Analyze seasonal patterns\n4. Deploy adaptive resource allocation"
+                                }
+                            }
+                            
+                            info = problem_info.get(atype, {
+                                "icon": "⚠️",
+                                "description": f"Anomalous pattern detected: {atype}",
+                                "cause": "Requires investigation to determine root cause",
+                                "solution": "1. Review data quality\n2. Perform field verification\n3. Consult local administration"
+                            })
+                            
+                            with st.expander(f"{info['icon']} {atype} - {count} districts affected", expanded=True):
+                                st.markdown(f"""
+                                <div style="background: white; padding: 1rem; border-radius: 8px; border-left: 4px solid #ea580c;">
+                                    <strong style="color: #1f2937;">Problem:</strong> {info['description']}<br/><br/>
+                                    <strong style="color: #1f2937;">Likely Cause:</strong> {info['cause']}
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                # Show affected districts
+                                affected = state_anomaly_details.filter(pl.col("anomaly_type") == atype)
+                                if "district" in affected.columns or "geo_key" in affected.columns:
+                                    district_col = "district" if "district" in affected.columns else "geo_key"
+                                    districts = affected.select(district_col).to_series().to_list()[:10]
+                                    
+                                    st.markdown("**Affected Districts:**")
+                                    district_tags = " ".join([f'<span style="background: #fee2e2; color: #991b1b; padding: 0.25rem 0.75rem; border-radius: 12px; margin: 2px; display: inline-block; font-size: 0.85rem;">{d}</span>' for d in districts])
+                                    st.markdown(district_tags, unsafe_allow_html=True)
+                                    
+                                    if len(affected) > 10:
+                                        st.caption(f"+ {len(affected) - 10} more districts")
+                                
+                                st.markdown("**✅ Recommended Actions:**")
+                                for i, action in enumerate(info['solution'].split('\n'), 1):
+                                    st.markdown(f"{action}")
+                
+                # Show detailed table of all anomalies
+                st.markdown("---")
+                st.markdown("#### 📋 Complete Anomaly Details")
+                
+                cols_to_show = ["district", "geo_key", "mvi", "z_score", "anomaly_type", "severity"]
+                available_cols = [c for c in cols_to_show if c in state_anomaly_details.columns]
+                
+                if available_cols:
+                    display_df = state_anomaly_details.select(available_cols).sort("z_score", descending=True).head(20).to_pandas()
+                    display_df.columns = [c.replace("_", " ").title() for c in display_df.columns]
+                    
+                    # Color-code severity
+                    st.dataframe(display_df, use_container_width=True, hide_index=True)
+                    
+                    if len(state_anomaly_details) > 20:
+                        st.info(f"Showing top 20 of {len(state_anomaly_details)} anomalies")
+                
+                # Summary recommendation box
+                st.markdown("---")
+                
+                if state_risk_score >= 50:
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, #fee2e220, #fecaca20); padding: 1.5rem; border-radius: 12px; border-left: 4px solid #dc2626;">
+                        <h4 style="color: #991b1b; margin-top: 0;">⚠️ HIGH RISK - Immediate Action Required</h4>
+                        <ul style="color: #7f1d1d; margin-bottom: 0;">
+                            <li><strong>Priority 1:</strong> Deploy field verification teams to {state_critical} critical districts within 48 hours</li>
+                            <li><strong>Priority 2:</strong> Escalate to state election commission for enhanced monitoring</li>
+                            <li><strong>Priority 3:</strong> Prepare emergency service capacity plans</li>
+                            <li><strong>Priority 4:</strong> Initiate data quality audit for outlier detection</li>
+                        </ul>
+                    </div>
+                    """, unsafe_allow_html=True)
+                elif state_risk_score >= 20:
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, #fef3c720, #fde68a20); padding: 1.5rem; border-radius: 12px; border-left: 4px solid #ea580c;">
+                        <h4 style="color: #92400e; margin-top: 0;">📊 ELEVATED RISK - Close Monitoring Required</h4>
+                        <ul style="color: #78350f; margin-bottom: 0;">
+                            <li><strong>Action 1:</strong> Increase monitoring frequency to weekly</li>
+                            <li><strong>Action 2:</strong> Prepare contingency plans for high-alert districts</li>
+                            <li><strong>Action 3:</strong> Brief district collectors on emerging patterns</li>
+                            <li><strong>Action 4:</strong> Review and validate data sources</li>
+                        </ul>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, #dcfce720, #bbf7d020); padding: 1.5rem; border-radius: 12px; border-left: 4px solid #16a34a;">
+                        <h4 style="color: #166534; margin-top: 0;">✅ LOW RISK - Routine Monitoring</h4>
+                        <ul style="color: #14532d; margin-bottom: 0;">
+                            <li>Continue standard monitoring protocols</li>
+                            <li>No immediate intervention required</li>
+                            <li>Review in next scheduled assessment cycle</li>
+                        </ul>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.success(f"✅ No anomalies detected in {selected_state}. All districts are within normal parameters.")
+        else:
+            st.info("No state data available for filtering")
+    else:
+        st.info("State column not available in data")
+
+elif calc_mode == "⚙️ Custom Calculator":
+    # Custom calculator with user inputs
+    st.markdown("**Enter your own values to calculate a custom risk score:**")
+    
+    custom_col1, custom_col2 = st.columns(2)
+    
+    with custom_col1:
+        st.markdown("##### Input Parameters")
+        
+        custom_critical = st.number_input("🔴 Critical Alerts", min_value=0, max_value=1000, value=int(critical), step=1, help="Number of critical severity alerts")
+        custom_high = st.number_input("🟠 High Severity Alerts", min_value=0, max_value=1000, value=int(high), step=1, help="Number of high severity alerts")
+        custom_anomaly_rate = st.slider("📈 Anomaly Rate (%)", min_value=0.0, max_value=100.0, value=float(anomaly_report['summary']['anomaly_rate']), step=0.1, help="Percentage of anomalous districts")
+        
+        st.markdown("##### Weight Configuration")
+        weight_critical = st.slider("Critical Weight", min_value=1, max_value=20, value=10, help="Multiplier for critical alerts")
+        weight_high = st.slider("High Weight", min_value=1, max_value=15, value=5, help="Multiplier for high alerts")
+        weight_anomaly = st.slider("Anomaly Rate Weight", min_value=1, max_value=10, value=2, help="Multiplier for anomaly rate")
+    
+    with custom_col2:
+        st.markdown("##### Calculated Risk Score")
+        
+        # Calculate custom risk score
+        custom_risk_score = (custom_critical * weight_critical) + (custom_high * weight_high) + (custom_anomaly_rate * weight_anomaly)
+        
+        # Display breakdown
+        st.markdown(f"""
+        <div style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; margin-bottom: 1rem;">
+            <table style="width: 100%; color: #374151;">
+                <tr><td><strong>Critical</strong></td><td>{custom_critical} × {weight_critical}</td><td style="text-align: right; color: #dc2626; font-weight: 700;">{custom_critical * weight_critical}</td></tr>
+                <tr><td><strong>High</strong></td><td>{custom_high} × {weight_high}</td><td style="text-align: right; color: #ea580c; font-weight: 700;">{custom_high * weight_high}</td></tr>
+                <tr><td><strong>Anomaly Rate</strong></td><td>{custom_anomaly_rate:.1f}% × {weight_anomaly}</td><td style="text-align: right; color: #f59e0b; font-weight: 700;">{custom_anomaly_rate * weight_anomaly:.1f}</td></tr>
+                <tr style="border-top: 2px solid #e5e7eb;"><td colspan="2"><strong>TOTAL</strong></td><td style="text-align: right; font-size: 1.5rem; font-weight: 800; color: #000000;">{custom_risk_score:.1f}</td></tr>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Risk level indicator
+        if custom_risk_score >= 50:
+            custom_color = "#dc2626"
+            custom_label = "HIGH RISK"
+            custom_action = "Immediate investigation and intervention required"
+        elif custom_risk_score >= 20:
+            custom_color = "#ea580c"
+            custom_label = "ELEVATED RISK"
+            custom_action = "Close monitoring and contingency planning needed"
+        else:
+            custom_color = "#16a34a"
+            custom_label = "LOW RISK"
+            custom_action = "Continue routine monitoring"
+        
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, {custom_color}20, {custom_color}10); padding: 1.5rem; border-radius: 12px; border-left: 4px solid {custom_color}; text-align: center;">
+            <div style="font-size: 2rem; font-weight: 800; color: {custom_color};">{custom_risk_score:.0f}</div>
+            <div style="font-size: 0.875rem; font-weight: 700; color: {custom_color};">{custom_label}</div>
+            <div style="font-size: 0.75rem; color: #475569; margin-top: 0.5rem;">{custom_action}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Threshold reference
+        st.markdown("""
+        <div style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px; font-size: 0.8rem; color: #64748b;">
+            <strong>Thresholds:</strong> LOW < 20 | ELEVATED 20-50 | HIGH ≥ 50
+        </div>
+        """, unsafe_allow_html=True)
+
 st.markdown("---")
 st.caption("💡 Tip: Not all anomalies are problems. Investigate to determine if the pattern is a data quality issue, a legitimate demographic shift, or requires policy intervention.")
+

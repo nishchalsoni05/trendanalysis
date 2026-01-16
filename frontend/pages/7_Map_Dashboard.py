@@ -327,13 +327,41 @@ elif mode == "Stress Monitor":
     # Mock Data for Stress Monitor
     # This simulates the "Lovable" reference image
     cities = [
-        {"name": "Delhi NCR", "lat": 28.7041, "lon": 77.1025, "stress": 92, "status": "Severe", "color": "#EF4444", "growth": "+4.2%"},
-        {"name": "Mumbai Metro", "lat": 19.0760, "lon": 72.8777, "stress": 91, "status": "Severe", "color": "#EF4444", "growth": "+3.8%"},
-        {"name": "Bangalore Urban", "lat": 12.9716, "lon": 77.5946, "stress": 85, "status": "High", "color": "#F59E0B", "growth": "+5.1%"},
-        {"name": "Chennai Metro", "lat": 13.0827, "lon": 80.2707, "stress": 78, "status": "High", "color": "#F59E0B", "growth": "+2.9%"},
-        {"name": "Hyderabad Metro", "lat": 17.3850, "lon": 78.4867, "stress": 72, "status": "Moderate", "color": "#3B82F6", "growth": "+4.5%"},
-        {"name": "Pune Metro", "lat": 18.5204, "lon": 73.8567, "stress": 68, "status": "Moderate", "color": "#3B82F6", "growth": "+3.6%"},
-        {"name": "Ahmedabad", "lat": 23.0225, "lon": 72.5714, "stress": 32, "status": "Stable", "color": "#10B981", "growth": "+1.1%"}
+        {
+            "name": "Delhi NCR", "lat": 28.7041, "lon": 77.1025, "stress": 92, "status": "Severe", "color": "#EF4444", "growth": "+4.2%",
+            "reason": "Unchecked urban sprawl combined with high seasonal labor influx from UP/Bihar.",
+            "solution": "Develop satellite townships and enforce rapid transit connectivity to disperse density."
+        },
+        {
+            "name": "Mumbai Metro", "lat": 19.0760, "lon": 72.8777, "stress": 91, "status": "Severe", "color": "#EF4444", "growth": "+3.8%",
+            "reason": "Critical infrastructure saturation; affordable housing deficit driving slum expansion.",
+            "solution": "Accelerate slum rehabilitation projects and decentralize commercial zones."
+        },
+        {
+            "name": "Bangalore Urban", "lat": 12.9716, "lon": 77.5946, "stress": 85, "status": "High", "color": "#F59E0B", "growth": "+5.1%",
+            "reason": "Explosive IT sector growth attracting skilled workforce faster than civic planning.",
+            "solution": "Enhance water infrastructure and expand metro grid to peripheral IT hubs."
+        },
+        {
+            "name": "Chennai Metro", "lat": 13.0827, "lon": 80.2707, "stress": 78, "status": "High", "color": "#F59E0B", "growth": "+2.9%",
+            "reason": "Industrial corridor expansion adding pressure on water resources.",
+            "solution": "Invest in sustainable water management and industrial housing zones."
+        },
+        {
+            "name": "Hyderabad Metro", "lat": 17.3850, "lon": 78.4867, "stress": 72, "status": "Moderate", "color": "#3B82F6", "growth": "+4.5%",
+            "reason": "Balanced growth but trending towards high density in western corridor.",
+            "solution": "Proactive zoning regulations for new commercial districts."
+        },
+        {
+            "name": "Pune Metro", "lat": 18.5204, "lon": 73.8567, "stress": 68, "status": "Moderate", "color": "#3B82F6", "growth": "+3.6%",
+            "reason": "Education and auto-hub migration creating localized pockets of stress.",
+            "solution": "Strengthen public transport links between educational and industrial zones."
+        },
+        {
+            "name": "Ahmedabad", "lat": 23.0225, "lon": 72.5714, "stress": 32, "status": "Stable", "color": "#10B981", "growth": "+1.1%",
+            "reason": "Well-planned urban expansion keeping pace with migration.",
+            "solution": "Maintain current successful town planning schemes (TP Schemes)."
+        }
     ]
     
     cities_df = pl.DataFrame(cities)
@@ -398,6 +426,7 @@ elif mode == "Stress Monitor":
             bg_color = "white"
             border_color = city["color"] + "40" # low opacity
             
+            # Card Header
             st.markdown(styles.clean_html(f"""
             <div style="
                 background: white;
@@ -405,7 +434,7 @@ elif mode == "Stress Monitor":
                 border-left: 4px solid {city['color']};
                 border-radius: 12px;
                 padding: 12px;
-                margin-bottom: 12px;
+                margin-bottom: 0px; 
                 box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             ">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -446,6 +475,23 @@ elif mode == "Stress Monitor":
                 </div>
             </div>
             """), unsafe_allow_html=True)
+            
+            # Actionable Insight Expander (Reason & Solution)
+            with st.expander(f"💡 Why & How to Fix ({city['name']})"):
+                 st.markdown(f"""
+                 <div style="font-size: 0.85rem; color: #334155;">
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: #DC2626;">🔻 Root Cause:</strong><br>
+                        {city['reason']}
+                    </div>
+                    <div>
+                        <strong style="color: #16A34A;">✅ Strategic Solution:</strong><br>
+                        {city['solution']}
+                    </div>
+                 </div>
+                 """, unsafe_allow_html=True)
+            
+            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
 
 # Vocabulary / Instruction Guide
 st.markdown("---")

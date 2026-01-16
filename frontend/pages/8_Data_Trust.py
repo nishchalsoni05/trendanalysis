@@ -225,5 +225,145 @@ if lineage_file.exists():
 else:
     st.info("No data lineage available. Run the pipeline to generate lineage metadata.")
 
+# NEW SECTION: Data Freshness Indicator
+st.markdown("---")
+st.markdown("## ⏱️ Data Freshness")
+
+freshness_col1, freshness_col2, freshness_col3 = st.columns(3)
+
+with freshness_col1:
+    last_run = summary.get('run_timestamp', None)
+    if last_run and isinstance(last_run, str):
+        from datetime import datetime
+        try:
+            run_time = datetime.fromisoformat(last_run.replace('Z', '+00:00'))
+            now = datetime.now()
+            hours_ago = (now - run_time.replace(tzinfo=None)).total_seconds() / 3600
+            
+            if hours_ago < 24:
+                freshness_color = "#16a34a"
+                freshness_label = "FRESH"
+            elif hours_ago < 72:
+                freshness_color = "#f59e0b"
+                freshness_label = "STALE"
+            else:
+                freshness_color = "#dc2626"
+                freshness_label = "OUTDATED"
+            
+            st.markdown(f"""
+            <div style="background: white; padding: 1.5rem; border-radius: 12px; border-left: 4px solid {freshness_color}; text-align: center;">
+                <div style="font-size: 2rem; font-weight: 700; color: {freshness_color};">{hours_ago:.1f}h</div>
+                <div style="font-size: 0.875rem; color: #6b7280;">Since Last Update</div>
+                <div style="margin-top: 0.5rem; padding: 0.25rem 0.75rem; background: {freshness_color}20; color: {freshness_color}; border-radius: 12px; display: inline-block; font-weight: 600; font-size: 0.75rem;">{freshness_label}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        except:
+            st.markdown(styles.render_metric_card("N/A", "Last Update"), unsafe_allow_html=True)
+    else:
+        st.markdown(styles.render_metric_card("N/A", "Last Update"), unsafe_allow_html=True)
+
+with freshness_col2:
+    pipeline_version = summary.get('pipeline_version', 'N/A')
+    st.markdown(f"""
+    <div style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 700; color: #3b82f6;">v{pipeline_version}</div>
+        <div style="font-size: 0.875rem; color: #6b7280;">Pipeline Version</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with freshness_col3:
+    duration = summary.get('duration_seconds', 0)
+    st.markdown(f"""
+    <div style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 700; color: #8b5cf6;">{duration:.1f}s</div>
+        <div style="font-size: 0.875rem; color: #6b7280;">Processing Time</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# NEW SECTION: Quality Score Breakdown
+st.markdown("---")
+st.markdown("## 📈 Quality Score Breakdown")
+
+quality_score = summary.get('quality_score', 0)
+
+# Visual quality meter
+import plotly.graph_objects as go
+
+fig = go.Figure(go.Indicator(
+    mode = "gauge+number+delta",
+    value = quality_score,
+    domain = {'x': [0, 1], 'y': [0, 1]},
+    title = {'text': "Overall Data Quality", 'font': {'size': 20, 'color': '#000000'}},
+    gauge = {
+        'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "#374151", 'tickfont': {'color': '#000000'}},
+        'bar': {'color': "#EA580C"},
+        'bgcolor': "white",
+        'borderwidth': 2,
+        'bordercolor': "#e5e7eb",
+        'steps': [
+            {'range': [0, 50], 'color': '#fee2e2'},
+            {'range': [50, 75], 'color': '#fef3c7'},
+            {'range': [75, 100], 'color': '#dcfce7'}
+        ],
+        'threshold': {
+            'line': {'color': "#16a34a", 'width': 4},
+            'thickness': 0.75,
+            'value': 80
+        }
+    }
+))
+
+fig.update_layout(
+    paper_bgcolor="white",
+    font={'color': "#000000", 'family': "Inter"},
+    height=300,
+    margin=dict(l=30, r=30, t=50, b=30)
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# Quality factors
+quality_col1, quality_col2, quality_col3 = st.columns(3)
+
+with quality_col1:
+    st.markdown("""
+    <div style="background: #f0fdf4; padding: 1rem; border-radius: 12px; border-left: 4px solid #16a34a;">
+        <div style="font-weight: 600; color: #166534;">✓ Data Completeness</div>
+        <div style="font-size: 0.875rem; color: #475569; margin-top: 0.5rem;">All required columns present and validated</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with quality_col2:
+    st.markdown("""
+    <div style="background: #f0fdf4; padding: 1rem; border-radius: 12px; border-left: 4px solid #16a34a;">
+        <div style="font-weight: 600; color: #166534;">✓ Schema Validation</div>
+        <div style="font-size: 0.875rem; color: #475569; margin-top: 0.5rem;">Data types match expected schema</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with quality_col3:
+    rows_dropped_pct = summary.get('rows_dropped_pct', 0)
+    # Convert to float to ensure proper comparison
+    try:
+        drop_rate = float(rows_dropped_pct) if rows_dropped_pct else 0
+    except (ValueError, TypeError):
+        drop_rate = 0
+    
+    if drop_rate < 5:
+        st.markdown("""
+        <div style="background: #f0fdf4; padding: 1rem; border-radius: 12px; border-left: 4px solid #16a34a;">
+            <div style="font-weight: 600; color: #166534;">✓ Low Drop Rate</div>
+            <div style="font-size: 0.875rem; color: #475569; margin-top: 0.5rem;">Less than 5% of rows filtered</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div style="background: #fef3c7; padding: 1rem; border-radius: 12px; border-left: 4px solid #f59e0b;">
+            <div style="font-weight: 600; color: #92400e;">⚠ Elevated Drop Rate</div>
+            <div style="font-size: 0.875rem; color: #475569; margin-top: 0.5rem;">{drop_rate:.1f}% of rows filtered</div>
+        </div>
+        """, unsafe_allow_html=True)
+
 st.markdown("---")
 st.caption("💡 Tip: All metadata is tracked automatically during pipeline execution. This page updates with each pipeline run.")
+

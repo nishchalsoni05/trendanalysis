@@ -177,11 +177,21 @@ with col1:
             yanchor="middle",
             y=0.5,
             xanchor="left",
-            x=1.0
+            x=1.0,
+            font=dict(color="#000000")
         ),
-        margin=dict(l=0, r=0, t=0, b=0)
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="rgba(255,255,255,0.9)",
+        plot_bgcolor="rgba(255,255,255,0.9)",
+        hoverlabel=dict(
+            bgcolor="#FFFFFF",
+            font_size=12,
+            font_family="Inter",
+            font_color="#000000",
+            bordercolor="#E5E7EB"
+        )
     )
-    chart_config.apply_dark_theme(fig)
+    # Remove dark theme - use light theme
     st.plotly_chart(fig, use_container_width=True)
 
 with col2:
@@ -278,5 +288,161 @@ with tab3:
         }
     )
 
+# NEW SECTION: State-Level Comparison Tool
+st.markdown("---")
+st.markdown("### 🔍 State Comparison Tool")
+st.markdown("Compare migration stress metrics between two states side-by-side.")
+
+compare_col1, compare_col2 = st.columns(2)
+
+# Get unique states - filter out numeric-only values
+if "state" in mvi_df.columns:
+    all_states_raw = mvi_df.select("state").unique().to_series().to_list()
+    # Filter out None, empty strings, and numeric-only values like "100000" or 100000
+    all_states = []
+    for s in all_states_raw:
+        if s is None or s == "":
+            continue
+        # Convert to string and check
+        s_str = str(s).strip()
+        # Skip if empty after strip or if it's purely numeric
+        if not s_str or s_str.isdigit():
+            continue
+        all_states.append(s_str)
+    all_states = sorted(all_states)
+    
+    with compare_col1:
+        state_a = st.selectbox("Select State A", all_states, key="state_a")
+    
+    with compare_col2:
+        state_b = st.selectbox("Select State B", all_states, index=min(1, len(all_states)-1), key="state_b")
+    
+    if state_a and state_b:
+        metric_col1, metric_col2 = st.columns(2)
+        
+        # State A metrics
+        state_a_data = mvi_df.filter(pl.col("state") == state_a)
+        state_a_avg_mvi = state_a_data.select("mvi").mean().item() if len(state_a_data) > 0 else 0
+        state_a_districts = len(state_a_data)
+        state_a_high = len(state_a_data.filter(pl.col("mvi") >= 30))
+        
+        with metric_col1:
+            st.markdown(f"""
+            <div style="background: white; padding: 1.5rem; border-radius: 12px; border-left: 4px solid #3b82f6;">
+                <h4 style="color: #1f2937; margin-top: 0;">{state_a}</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                    <div>
+                        <div style="color: #6b7280; font-size: 0.875rem;">Districts</div>
+                        <div style="color: #000000; font-size: 1.5rem; font-weight: 700;">{state_a_districts}</div>
+                    </div>
+                    <div>
+                        <div style="color: #6b7280; font-size: 0.875rem;">Avg MVI</div>
+                        <div style="color: #000000; font-size: 1.5rem; font-weight: 700;">{state_a_avg_mvi:.2f}</div>
+                    </div>
+                    <div>
+                        <div style="color: #6b7280; font-size: 0.875rem;">High Pressure</div>
+                        <div style="color: #dc2626; font-size: 1.5rem; font-weight: 700;">{state_a_high}</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # State B metrics
+        state_b_data = mvi_df.filter(pl.col("state") == state_b)
+        state_b_avg_mvi = state_b_data.select("mvi").mean().item() if len(state_b_data) > 0 else 0
+        state_b_districts = len(state_b_data)
+        state_b_high = len(state_b_data.filter(pl.col("mvi") >= 30))
+        
+        with metric_col2:
+            st.markdown(f"""
+            <div style="background: white; padding: 1.5rem; border-radius: 12px; border-left: 4px solid #10b981;">
+                <h4 style="color: #1f2937; margin-top: 0;">{state_b}</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                    <div>
+                        <div style="color: #6b7280; font-size: 0.875rem;">Districts</div>
+                        <div style="color: #000000; font-size: 1.5rem; font-weight: 700;">{state_b_districts}</div>
+                    </div>
+                    <div>
+                        <div style="color: #6b7280; font-size: 0.875rem;">Avg MVI</div>
+                        <div style="color: #000000; font-size: 1.5rem; font-weight: 700;">{state_b_avg_mvi:.2f}</div>
+                    </div>
+                    <div>
+                        <div style="color: #6b7280; font-size: 0.875rem;">High Pressure</div>
+                        <div style="color: #dc2626; font-size: 1.5rem; font-weight: 700;">{state_b_high}</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Winner indication
+        if state_a_avg_mvi > state_b_avg_mvi:
+            st.warning(f"⚠️ **{state_a}** has higher average migration pressure than {state_b}")
+        elif state_b_avg_mvi > state_a_avg_mvi:
+            st.warning(f"⚠️ **{state_b}** has higher average migration pressure than {state_a}")
+        else:
+            st.info("Both states have similar migration pressure levels")
+
+# NEW SECTION: State-Level Heatmap
+st.markdown("---")
+st.markdown("### 🗺️ State-Level MVI Heatmap")
+st.markdown("Overview of migration pressure across all states.")
+
+if "state" in mvi_df.columns:
+    import plotly.graph_objects as go
+    
+    # Aggregate by state
+    state_summary = mvi_df.group_by("state").agg([
+        pl.col("mvi").mean().alias("avg_mvi"),
+        pl.count().alias("district_count"),
+        (pl.col("mvi") >= 30).sum().alias("high_pressure_count")
+    ]).sort("avg_mvi", descending=True)
+    
+    # Create heatmap-style bar chart
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        y=state_summary.select("state").to_series().to_list(),
+        x=state_summary.select("avg_mvi").to_series().to_list(),
+        orientation='h',
+        marker=dict(
+            color=state_summary.select("avg_mvi").to_series().to_list(),
+            colorscale=[
+                [0, "#10b981"],      # Green (low)
+                [0.3, "#f59e0b"],    # Yellow (moderate)
+                [0.6, "#ea580c"],    # Orange (elevated)
+                [1, "#dc2626"]       # Red (high)
+            ],
+            showscale=True,
+            colorbar=dict(
+                title=dict(text="Avg MVI", font=dict(color="#000000")),
+                tickfont=dict(color="#000000")
+            )
+        ),
+        text=state_summary.select("avg_mvi").to_series().to_list(),
+        texttemplate="%{text:.1f}",
+        textposition="outside",
+        textfont=dict(color="#000000")
+    ))
+    
+    fig.update_layout(
+        title=dict(text="Average MVI by State", font=dict(color="#000000")),
+        xaxis=dict(title=dict(text="Average MVI", font=dict(color="#000000")), tickfont=dict(color="#000000")),
+        yaxis=dict(tickfont=dict(color="#000000"), autorange="reversed"),
+        height=max(400, len(state_summary) * 25),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        margin=dict(l=150, r=50, t=50, b=50),
+        hoverlabel=dict(
+            bgcolor="#FFFFFF",
+            font_size=12,
+            font_family="Inter",
+            font_color="#000000",
+            bordercolor="#E5E7EB"
+        )
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
 st.markdown("---")
 st.caption("💡 Tip: Focus on high-pressure zones for immediate intervention. Monitor elevated zones for emerging patterns.")
+

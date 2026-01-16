@@ -174,7 +174,14 @@ if "mvi" in typology_df.columns:
         paper_bgcolor="#FAF9F6",
         font=dict(color="#1F2937"),
         height=350,
-        showlegend=False
+        showlegend=False,
+        hoverlabel=dict(
+            bgcolor="#FFFFFF",
+            font_size=12,
+            font_family="Inter",
+            font_color="#000000",
+            bordercolor="#E5E7EB"
+        )
     )
     
     st.plotly_chart(fig, use_container_width=True)
@@ -256,6 +263,7 @@ if "acceleration" in acceleration_df.columns and "geo_key" in acceleration_df.co
     )
     
     # Create scatter plot
+    # Create scatter plot without title/labels initially to avoid template conflicts
     fig = px.scatter(
         accel_analysis.to_pandas(),
         x="mvi",
@@ -267,12 +275,6 @@ if "acceleration" in acceleration_df.columns and "geo_key" in acceleration_df.co
             "stable": "#94A3B8",
             "decelerating": "#16A34A"
         } if "acceleration_status" in accel_analysis.columns else None,
-        title="Migration Pressure vs Acceleration",
-        labels={
-            "mvi": "Current MVI (Migration Velocity)",
-            "acceleration": "Acceleration (Rate of Change)"
-        },
-        template="plotly_white"
     )
     
     # Add quadrant lines
@@ -296,10 +298,48 @@ if "acceleration" in acceleration_df.columns and "geo_key" in acceleration_df.co
             borderpad=6
         )
     
+    # Use LIGHT THEME with white background and black text
     fig.update_layout(
+        title=dict(
+            text="Migration Pressure vs Acceleration",
+            font=dict(color="#000000", size=16, family="Inter")
+        ),
+        legend=dict(
+            title=dict(text="Acceleration Status", font=dict(color="#000000")),
+            font=dict(color="#000000"),
+            bgcolor="rgba(255,255,255,0.9)",
+            bordercolor="#E5E7EB",
+            borderwidth=1
+        ),
+        hoverlabel=dict(
+            bgcolor="#FFFFFF",
+            font_size=12,
+            font_family="Inter",
+            font_color="#000000",
+            bordercolor="#E5E7EB"
+        ),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+        margin=dict(l=40, r=40, t=60, b=40),
         height=500,
-        template="plotly_dark",
-        legend_title="Acceleration Status"
+        font=dict(color="#000000", family="Inter")
+    )
+
+    # Update axes with black text
+    fig.update_xaxes(
+        title=dict(text="Current MVI (Migration Velocity)", font=dict(color="#000000", size=14)),
+        tickfont=dict(color="#000000"),
+        gridcolor="rgba(0,0,0,0.1)",
+        zerolinecolor="rgba(0,0,0,0.2)",
+        showgrid=True
+    )
+
+    fig.update_yaxes(
+        title=dict(text="Acceleration (Rate of Change)", font=dict(color="#000000", size=14)),
+        tickfont=dict(color="#000000"),
+        gridcolor="rgba(0,0,0,0.1)",
+        zerolinecolor="rgba(0,0,0,0.2)",
+        showgrid=True
     )
     
     st.plotly_chart(fig, use_container_width=True)

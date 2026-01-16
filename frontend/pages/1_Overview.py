@@ -10,6 +10,7 @@ st.set_page_config(
     page_title="Overview | Aadhaar Sanket",
     page_icon="🇮🇳",
     layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -182,6 +183,13 @@ def main():
             coloraxis_colorbar=dict(
                 title=dict(text="MVI", font=dict(color="#000000")),
                 tickfont=dict(color="#000000")
+            ),
+            hoverlabel=dict(
+                bgcolor="#FFFFFF",
+                font_size=12,
+                font_family="Inter",
+                font_color="#000000",
+                bordercolor="#E5E7EB"
             )
         )
         fig.update_xaxes(tickfont=dict(color="#000000"))

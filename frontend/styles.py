@@ -303,6 +303,41 @@ def get_global_css():
         div[data-baseweb="tag"] svg {
             color: #C2410C !important;
         }
+        
+        /* Dropdown arrow icons - make them BLACK for visibility */
+        div[data-baseweb="select"] svg,
+        .stSelectbox svg,
+        [data-baseweb="select"] button svg {
+            color: #000000 !important;
+            fill: #000000 !important;
+        }
+        
+        /* Selectbox chevron/arrow icon */
+        [data-testid="stSelectbox"] svg {
+            color: #000000 !important;
+            fill: #000000 !important;
+        }
+        
+        /* RADIO BUTTON LABELS - FORCE BLACK */
+        .stRadio label {
+            color: #000000 !important;
+        }
+        .stRadio [data-baseweb="radio"] span {
+            color: #000000 !important;
+        }
+        [data-testid="stWidgetLabel"] p {
+            color: #000000 !important;
+        }
+        /* Radio option text */
+        .stRadio > div > label > div:last-child {
+            color: #000000 !important;
+        }
+        [role="radiogroup"] label {
+            color: #000000 !important;
+        }
+        [role="radiogroup"] label > div {
+            color: #000000 !important;
+        }
 
         input, textarea {
             background-color: #FFFFFF !important;
@@ -470,6 +505,79 @@ def get_global_css():
         ::-webkit-scrollbar-thumb {
             background: var(--accent-saffron);
             border-radius: 5px;
+        }
+
+        /* ========================================
+           GLOBAL METRIC TEXT VISIBILITY FIXES
+           Ensures all st.metric components have BLACK text
+           ======================================== */
+        [data-testid="stMetricValue"] {
+            color: #000000 !important;
+        }
+        [data-testid="stMetricLabel"] {
+            color: #000000 !important;
+        }
+        [data-testid="stMetricDelta"] {
+            color: #16a34a !important;
+        }
+        [data-testid="stMetricDeltaIcon-Up"] {
+            color: #16a34a !important;
+        }
+        [data-testid="stMetricDeltaIcon-Down"] {
+            color: #dc2626 !important;
+        }
+        
+        /* Metric container background */
+        [data-testid="metric-container"] {
+            background-color: rgba(255, 255, 255, 0.9) !important;
+            padding: 1rem !important;
+            border-radius: 12px !important;
+            border: 1px solid #e5e7eb !important;
+        }
+
+        /* ========================================
+           PLOTLY CHART HOVER TOOLTIP FIXES
+           Ensures all chart tooltips are readable
+           ======================================== */
+        .hoverlayer .hovertext {
+            background-color: #FFFFFF !important;
+        }
+        .hoverlayer .hovertext text {
+            fill: #000000 !important;
+        }
+        
+        /* ========================================
+           CHECKBOX AND RADIO BUTTON TEXT FIXES
+           ======================================== */
+        .stCheckbox label span,
+        .stRadio label span,
+        .stCheckbox > label > div[data-testid="stMarkdownContainer"] p,
+        .stRadio > label > div[data-testid="stMarkdownContainer"] p {
+            color: #000000 !important;
+        }
+        
+        /* ========================================
+           GENERAL TEXT VISIBILITY ENFORCEMENT
+           ======================================== */
+        .main .block-container h1,
+        .main .block-container h2,
+        .main .block-container h3,
+        .main .block-container h4,
+        .main .block-container h5,
+        .main .block-container p,
+        .main .block-container li,
+        .main .block-container span:not([class*="badge"]) {
+            color: var(--text-black) !important;
+        }
+        
+        /* Caption text visibility */
+        .stCaption, [data-testid="stCaptionContainer"] {
+            color: #555555 !important;
+        }
+        
+        /* Info/Warning/Error box text */
+        .stAlert > div {
+            color: #000000 !important;
         }
     </style>
     """

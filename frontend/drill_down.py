@@ -37,22 +37,81 @@ def navigate_back():
 
 
 def render_metric_button(value: str, label: str, metric_id: str, params: Dict = None, **kwargs):
-    """Render a clickable metric card that opens evidence page."""
+    """Render a clickable metric card that opens evidence page - Clean contained design."""
     import frontend.styles as styles
     
     button_key = f"metric_btn_{metric_id}"
+    trend = kwargs.get('trend', '')
+    trend_direction = kwargs.get('trend_direction', 'neutral')
     
-    col1, col2 = st.columns([3, 2])
+    # Icon mapping based on metric type
+    icon_map = {
+        'total_districts': '📊',
+        'average_mvi': '📈',
+        'high_mvi': '⚠️',
+        'elevated_mvi': '📍'
+    }
+    icon = icon_map.get(metric_id, '📊')
     
-    with col1:
-        st.markdown(
-            styles.render_metric_card(value, label, **kwargs),
-            unsafe_allow_html=True
-        )
+    # Color mapping for icons
+    color_map = {
+        'total_districts': '#3B82F6',  # Blue
+        'average_mvi': '#10B981',      # Green
+        'high_mvi': '#EF4444',         # Red
+        'elevated_mvi': '#F59E0B'      # Amber
+    }
+    icon_color = color_map.get(metric_id, '#6B7280')
     
-    with col2:
-        if st.button("🔍 Details", key=button_key, use_container_width=True):
-            navigate_to_metric(metric_id, params)
+    # Trend indicator
+    trend_html = ''
+    if trend:
+        trend_color = '#10B981' if trend_direction == 'down' else ('#EF4444' if trend_direction == 'up' else '#F59E0B')
+        trend_html = f'<div style="color: {trend_color}; font-size: 0.75rem; margin-top: 0.25rem;">↗ {trend}</div>'
+    
+    # Create the complete card with button inside
+    card_html = f"""
+    <div style="
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #E5E7EB;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    ">
+        <div>
+            <div style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 40px;
+                height: 40px;
+                background: {icon_color}15;
+                border-radius: 8px;
+                margin-bottom: 1rem;
+                font-size: 1.25rem;
+            ">{icon}</div>
+            
+            <div style="color: #6B7280; font-size: 0.875rem; margin-bottom: 0.5rem; font-weight: 500;">
+                {label}
+            </div>
+            
+            <div style="color: #1F2937; font-size: 1.75rem; font-weight: 700; margin-bottom: 0.25rem;">
+                {value}
+            </div>
+            
+            {trend_html}
+        </div>
+    </div>
+    """
+    
+    st.html(card_html)
+    
+    # Detail button below the card
+    if st.button("🔍 View Details", key=button_key, use_container_width=True):
+        navigate_to_metric(metric_id, params)
 
 
 def render_evidence_page(metric_name: str, params: Dict[str, Any]):

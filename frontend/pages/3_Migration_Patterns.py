@@ -75,19 +75,24 @@ def load_migration_data():
         # Secondary: Seasonality (for improved filtering)
         try:
             seasonality_df = load_processed_dataset("seasonality")
-            # Join seasonality info if needed, or just return both
         except:
             seasonality_df = None
+        
+        # Tertiary: Time-series MVI data for temporal analysis
+        try:
+            mvi_timeseries_df = load_processed_dataset("mvi")
+        except:
+            mvi_timeseries_df = None
             
         if "mean_mvi" in typology_df.columns:
             typology_df = typology_df.rename({"mean_mvi": "mvi"})
             
-        return typology_df, seasonality_df, True
+        return typology_df, seasonality_df, mvi_timeseries_df, True
     except Exception as e:
-        return None, None, False
+        return None, None, None, False
 
 # Load data
-mvi_df, seasonality_df, data_available = load_migration_data()
+mvi_df, seasonality_df, mvi_timeseries_df, data_available = load_migration_data()
 
 if not data_available:
     st.markdown(styles.clean_html("""
@@ -111,11 +116,72 @@ st.markdown(styles.render_insight_card(
 
 st.markdown("---")
 
-# State selection
+# State selection - extract from data
 if "state" in mvi_df.columns:
-    states = sorted(mvi_df.select("state").unique().to_series().to_list())
+    states_raw = mvi_df.select("state").unique().to_series().to_list()
+    
+    # Debug: show what we got
+    st.write(f"DEBUG: Found {len(states_raw)} unique values in state column")
+    st.write(f"DEBUG: First 10 raw values: {states_raw[:10]}")
+    
+    # Filter out None, empty strings, and numeric-only values like "100000" or 100000
+    states = []
+    filtered_out = []
+    for s in states_raw:
+        if s is None or s == "":
+            filtered_out.append(f"None/Empty: {repr(s)}")
+            continue
+        # Convert to string and check
+        s_str = str(s).strip()
+        # Skip if empty after strip or if it's purely numeric or starts with digit
+        if not s_str:
+            filtered_out.append(f"Empty after strip: {repr(s)}")
+            continue
+        if s_str.isdigit():
+            filtered_out.append(f"Pure digit: {repr(s)}")
+            continue
+        # Also filter if it's a number (handles floats, etc)
+        try:
+            float(s_str)
+            filtered_out.append(f"Numeric (float test): {repr(s)}")
+            continue
+        except:
+            pass
+        states.append(s_str)
+    
+    states = sorted(states)
+    
+    # Debug: show what we filtered out
+    if filtered_out:
+        st.write(f"DEBUG: Filtered out {len(filtered_out)} values:")
+        st.write(filtered_out[:10])
+elif "geo_key" in mvi_df.columns:
+    # Try to extract state from geo_key (format: district_state or just district)
+    import polars as pl
+    try:
+        # Try to get state from demographic data
+        from src.engines.ingestion import load_processed_dataset
+        demo_df = load_processed_dataset("demographic")
+        if "state" in demo_df.columns and "district" in demo_df.columns:
+            # Extract unique states
+            states = sorted(demo_df.select("state").unique().to_series().to_list())
+            # Add state column to mvi_df by joining
+            mvi_df = mvi_df.join(
+                demo_df.select(["district", "state"]).unique(),
+                left_on="geo_key",
+                right_on="district",
+                how="left"
+            )
+        else:
+            states = []
+    except:
+        states = []
 else:
     states = []
+
+# Debug: Show what we found
+if len(states) == 0:
+    st.warning(f"⚠️ No states found in data. Available columns: {', '.join(mvi_df.columns)}")
 
 col1, col2 = st.columns([1, 3])
 
@@ -143,6 +209,29 @@ with col1:
     div[data-baseweb="select"] span {
         color: white !important;
     }
+    
+    /* Dropdown arrow icons - WHITE for dark backgrounds */
+    .stSelectbox svg,
+    .stMultiSelect svg,
+    div[data-baseweb="select"] svg,
+    div[data-baseweb="select"] button svg {
+        color: #FFFFFF !important;
+        fill: #FFFFFF !important;
+    }
+    
+    /* Multiselect tag styling - make icons WHITE */
+    div[data-baseweb="tag"] {
+        background-color: #334155 !important;
+        border-color: #475569 !important;
+    }
+    div[data-baseweb="tag"] span {
+        color: #FFFFFF !important;
+    }
+    div[data-baseweb="tag"] svg {
+        color: #FFFFFF !important;
+        fill: #FFFFFF !important;
+    }
+    
     /* Dropdown menu items */
     ul[role="listbox"] {
         background-color: #1e293b !important;
@@ -157,13 +246,35 @@ with col1:
     .stMarkdown h4 {
         color: #1e293b !important;
     }
+    
+    /* Fix metric text visibility - Make all text BLACK */
+    [data-testid="stMetricValue"] {
+        color: #000000 !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #000000 !important;
+    }
+    [data-testid="stMetricDelta"] {
+        color: #16a34a !important;
+    }
+    .stMetric {
+        background-color: white;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+    }
     </style>
     """, unsafe_allow_html=True)
     
-    state_list = states if states else ["All"]
+    # Build state list - ensure we have actual states
+    if states and len(states) > 0:
+        state_options = ["All States"] + states
+    else:
+        state_options = ["All States"]
+    
     selected_state = st.selectbox(
         "🗺️ Select State", 
-        ["All States"] + (state_list if "All" not in state_list else []),
+        state_options,
         help="Filter districts by state"
     )
     
@@ -372,6 +483,230 @@ with col2:
 
         else:
             st.warning("No data to display summary statistics.")
+
+# NEW SECTIONS: TEMPORAL ANALYSIS & COMPARISONS
+st.markdown("---")
+
+# Section 1: Temporal Trends Analysis
+if mvi_timeseries_df is not None and len(mvi_timeseries_df) > 0:
+    st.markdown("### 📈 Temporal Trends Analysis")
+    st.markdown(styles.render_insight_card(
+        "How are migration patterns changing over time?",
+        "Visualize MVI evolution across months to identify emerging hotspots and declining pressure zones.",
+        "Use this to forecast future migration pressure and plan capacity accordingly.",
+        "📅"
+    ), unsafe_allow_html=True)
+    
+    # District selection for time-series
+    temporal_col1, temporal_col2 = st.columns([1, 3])
+    
+    with temporal_col1:
+        st.markdown("#### 🎯 Select Districts")
+        
+        # Get available districts
+        geo_col = "district" if "district" in mvi_timeseries_df.columns else "geo_key"
+        available_districts = sorted(mvi_timeseries_df.select(geo_col).unique().to_series().to_list())[:50]  # Limit to 50 for performance
+        
+        selected_districts = st.multiselect(
+            "Compare up to 5 districts",
+            available_districts,
+            default=available_districts[:3] if len(available_districts) >= 3 else available_districts,
+            max_selections=5,
+            help="Select districts to compare their MVI evolution over time"
+        )
+        
+        show_average = st.checkbox("Show National Average", value=True)
+    
+    with temporal_col2:
+        if selected_districts:
+            import plotly.graph_objects as go
+            
+            # Filter data for selected districts
+            temporal_data = mvi_timeseries_df.filter(pl.col(geo_col).is_in(selected_districts))
+            
+            # Create line chart
+            fig = go.Figure()
+            
+            # Add line for each district
+            for district in selected_districts:
+                district_data = temporal_data.filter(pl.col(geo_col) == district).sort("date")
+                
+                if len(district_data) > 0:
+                    fig.add_trace(go.Scatter(
+                        x=district_data.select("date").to_series().to_list(),
+                        y=district_data.select("mvi").to_series().to_list(),
+                        mode='lines+markers',
+                        name=district,
+                        line=dict(width=2),
+                        marker=dict(size=6)
+                    ))
+            
+            # Add national average if checked
+            if show_average and "date" in mvi_timeseries_df.columns:
+                avg_by_date = mvi_timeseries_df.group_by("date").agg(
+                    pl.col("mvi").mean().alias("avg_mvi")
+                ).sort("date")
+                
+                fig.add_trace(go.Scatter(
+                    x=avg_by_date.select("date").to_series().to_list(),
+                    y=avg_by_date.select("avg_mvi").to_series().to_list(),
+                    mode='lines',
+                    name='National Average',
+                    line=dict(width=3, dash='dash', color='#94a3b8'),
+                ))
+            
+            # Add threshold lines
+            fig.add_hline(y=30, line_dash="dot", line_color="#ef4444", 
+                         annotation_text="High Pressure (30)", annotation_position="right")
+            fig.add_hline(y=15, line_dash="dot", line_color="#f59e0b", 
+                         annotation_text="Moderate (15)", annotation_position="right")
+            
+            fig.update_layout(
+                title="MVI Evolution Over Time",
+                xaxis_title="Date",
+                yaxis_title="Migration Velocity Index (MVI)",
+                hovermode='x unified',
+                height=500,
+                template="plotly_white",
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Select at least one district to view temporal trends.")
+    
+    st.markdown("---")
+
+# Section 2: Seasonality Analysis
+if seasonality_df is not None and len(seasonality_df) > 0:
+    st.markdown("### 🌊 Seasonality Patterns")
+    st.markdown(styles.render_insight_card(
+        "When does migration peak?",
+        "Identify seasonal patterns to anticipate cyclical migration waves and prepare resources.",
+        "High seasonality indicates predictable patterns; use this for proactive planning.",
+        "📆"
+    ), unsafe_allow_html=True)
+    
+    # Check if seasonality_df has the expected columns
+    if "geo_key" in seasonality_df.columns and "seasonal_strength" in seasonality_df.columns:
+        # Top 10 most seasonal districts
+        top_seasonal = seasonality_df.sort("seasonal_strength", descending=True).head(10)
+        
+        season_col1, season_col2 = st.columns(2)
+        
+        with season_col1:
+            st.markdown("#### 📊 Top Seasonal Districts")
+            
+            # Create horizontal bar chart
+            import plotly.express as px
+            
+            fig_seasonal = px.bar(
+                top_seasonal.to_pandas(),
+                y="geo_key",
+                x="seasonal_strength",
+                orientation='h',
+                title="Districts with Strongest Seasonal Patterns",
+                labels={"geo_key": "District", "seasonal_strength": "Seasonal Strength"},
+                color="seasonal_strength",
+                color_continuous_scale="Blues"
+            )
+            
+            fig_seasonal.update_layout(
+                height=400,
+                template="plotly_white",
+                showlegend=False
+            )
+            
+            st.plotly_chart(fig_seasonal, use_container_width=True)
+        
+        with season_col2:
+            st.markdown("#### 📅 Peak Migration Months")
+            
+            # If peak_month column exists
+            if "peak_month" in seasonality_df.columns:
+                month_counts = seasonality_df.group_by("peak_month").len().sort("peak_month")
+                
+                fig_months = px.bar(
+                    month_counts.to_pandas(),
+                    x="peak_month",
+                    y="len",
+                    title="Distribution of Peak Migration Months",
+                    labels={"peak_month": "Month", "len": "Number of Districts"},
+                    color="len",
+                    color_continuous_scale="Oranges"
+                )
+                
+                fig_months.update_layout(
+                    height=400,
+                    template="plotly_white",
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig_months, use_container_width=True)
+            else:
+                st.info("Peak month data not available in seasonality dataset.")
+    else:
+        st.info("Seasonality analysis requires 'seasonal_strength' column in the dataset.")
+    
+    st.markdown("---")
+
+# Section 3: District Deep Dive
+st.markdown("### 🔬 District Deep Dive")
+st.markdown("Select a district to view its detailed migration profile and temporal metrics.")
+
+deep_dive_col1, deep_dive_col2 = st.columns([1, 2])
+
+with deep_dive_col1:
+    geo_col = "district" if "district" in mvi_df.columns else "geo_key"
+    all_districts = sorted(mvi_df.select(geo_col).unique().to_series().to_list())
+    
+    selected_deep_dive = st.selectbox(
+        "Choose District for Analysis",
+        all_districts,
+        help="View comprehensive metrics for the selected district"
+    )
+
+with deep_dive_col2:
+    if selected_deep_dive:
+        # Get district metrics
+        district_metrics = mvi_df.filter(pl.col(geo_col) == selected_deep_dive)
+        
+        if len(district_metrics) > 0:
+            metrics_row = district_metrics.row(0, named=True)
+            
+            # Display metrics in cards
+            metric_cols = st.columns(4)
+            
+            with metric_cols[0]:
+                mvi_val = metrics_row.get("mvi", 0)
+                st.metric("Current MVI", f"{mvi_val:.2f}")
+            
+            with metric_cols[1]:
+                slope_val = metrics_row.get("slope", 0)
+                st.metric("Growth Rate", f"{slope_val:.3f}", delta="per month")
+            
+            with metric_cols[2]:
+                variance_val = metrics_row.get("variance", 0)
+                st.metric("Volatility", f"{variance_val:.2f}")
+            
+            with metric_cols[3]:
+                strength_val = metrics_row.get("trend_strength", 0)
+                st.metric("Trend Strength", f"{strength_val:.2f}")
+            
+            # Explanation
+            if "explanation" in metrics_row:
+                st.markdown(f"""
+                <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; border-left: 4px solid #3b82f6; margin-top: 1rem;">
+                    <strong style="color: #1f2937;">📝 Analysis:</strong><br>
+                    <span style="color: #475569;">{metrics_row['explanation']}</span>
+                </div>
+                """, unsafe_allow_html=True)
 
 st.markdown("---")
 st.caption("💡 Tip: Use filters to focus on specific states or MVI ranges. High-pressure zones (red) require immediate attention.")
